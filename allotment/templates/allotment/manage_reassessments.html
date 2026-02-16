@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Manage Reassessments - SmartAllot Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-5">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="mb-4">
+                <h1 style="font-size: 2rem; font-weight: 600;">Reassessment Management</h1>
+                <p class="text-muted mb-0">Review and approve/reject student reassessments</p>
+            </div>
+
+            <!-- Status Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <a href="?status=SUBMITTED" class="text-decoration-none">
+                        <div class="card border-0 shadow-sm h-100 {% if status_filter == 'SUBMITTED' %}bg-light{% endif %}">
+                            <div class="card-body p-4 text-center">
+                                <div class="bg-secondary bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="bi bi-hourglass-split text-secondary" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <h6 style="font-weight: 600; margin-bottom: 0.5rem;">Pending</h6>
+                                <h3 class="mb-0">{{ status_counts.SUBMITTED }}</h3>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <a href="?status=UNDER_REVIEW" class="text-decoration-none">
+                        <div class="card border-0 shadow-sm h-100 {% if status_filter == 'UNDER_REVIEW' %}bg-light{% endif %}">
+                            <div class="card-body p-4 text-center">
+                                <div class="bg-info bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="bi bi-eye text-info" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <h6 style="font-weight: 600; margin-bottom: 0.5rem;">Under Review</h6>
+                                <h3 class="mb-0">{{ status_counts.UNDER_REVIEW }}</h3>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <a href="?status=APPROVED" class="text-decoration-none">
+                        <div class="card border-0 shadow-sm h-100 {% if status_filter == 'APPROVED' %}bg-light{% endif %}">
+                            <div class="card-body p-4 text-center">
+                                <div class="bg-success bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="bi bi-check-circle text-success" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <h6 style="font-weight: 600; margin-bottom: 0.5rem;">Approved</h6>
+                                <h3 class="mb-0">{{ status_counts.APPROVED }}</h3>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <a href="?status=REJECTED" class="text-decoration-none">
+                        <div class="card border-0 shadow-sm h-100 {% if status_filter == 'REJECTED' %}bg-light{% endif %}">
+                            <div class="card-body p-4 text-center">
+                                <div class="bg-danger bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="bi bi-x-circle text-danger" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <h6 style="font-weight: 600; margin-bottom: 0.5rem;">Rejected</h6>
+                                <h3 class="mb-0">{{ status_counts.REJECTED }}</h3>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Reassessments Table -->
+            {% if reassessments %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom p-4">
+                    <h6 style="font-weight: 600; margin-bottom: 0;">
+                        {% if status_filter == 'all' %}
+                            All Reassessments
+                        {% elif status_filter == 'SUBMITTED' %}
+                            Pending Review
+                        {% elif status_filter == 'UNDER_REVIEW' %}
+                            Under Review
+                        {% elif status_filter == 'APPROVED' %}
+                            Approved
+                        {% elif status_filter == 'REJECTED' %}
+                            Rejected
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="font-weight: 600;">Student</th>
+                                <th style="font-weight: 600;">Roll No.</th>
+                                <th style="font-weight: 600;">Department</th>
+                                <th style="font-weight: 600;">Subjects</th>
+                                <th style="font-weight: 600;">Submitted</th>
+                                <th style="font-weight: 600;">Status</th>
+                                <th style="font-weight: 600;" class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for reassessment in reassessments %}
+                            <tr>
+                                <td>
+                                    <strong>{{ reassessment.student.user.first_name }} {{ reassessment.student.user.last_name }}</strong>
+                                </td>
+                                <td>{{ reassessment.student.roll_number }}</td>
+                                <td>{{ reassessment.student.department }}</td>
+                                <td>
+                                    <small>{{ reassessment.subjects|truncatewords:5 }}</small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ reassessment.submitted_at|date:"M d, Y" }}</small>
+                                </td>
+                                <td>
+                                    {% if reassessment.status == 'SUBMITTED' %}
+                                        <span class="badge bg-secondary">Pending</span>
+                                    {% elif reassessment.status == 'UNDER_REVIEW' %}
+                                        <span class="badge bg-info">Under Review</span>
+                                    {% elif reassessment.status == 'APPROVED' %}
+                                        <span class="badge bg-success">Approved</span>
+                                    {% elif reassessment.status == 'REJECTED' %}
+                                        <span class="badge bg-danger">Rejected</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if reassessment.status == 'SUBMITTED' or reassessment.status == 'UNDER_REVIEW' %}
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'approve_reassessment' reassessment.pk %}" class="btn btn-sm btn-success rounded-0" title="Approve">
+                                            <i class="bi bi-check-circle"></i>
+                                        </a>
+                                        <a href="{% url 'reject_reassessment' reassessment.pk %}" class="btn btn-sm btn-danger rounded-0" title="Reject">
+                                            <i class="bi bi-x-circle"></i>
+                                        </a>
+                                    </div>
+                                    {% else %}
+                                    <small class="text-muted">No action</small>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <!-- Empty State -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-5 text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-inbox" style="font-size: 4rem; color: #ccc;"></i>
+                    </div>
+                    <h5 style="font-weight: 600;">No Reassessments Found</h5>
+                    <p class="text-muted mb-0">There are no reassessments with the status "{{ status_filter }}"</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .badge {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.75rem;
+        font-weight: 600;
+    }
+
+    .btn-group .btn {
+        border-color: #dee2e6;
+    }
+
+    .btn-group .btn:hover {
+        border-color: #adb5bd;
+    }
+
+    a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .card {
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08) !important;
+    }
+</style>
+{% endblock %}

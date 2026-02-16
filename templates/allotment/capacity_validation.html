@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Seat Capacity Validation</h2>
+{% if thresholds %}
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Department</th>
+            <th>Threshold</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for dept, value in thresholds.items %}
+        <tr>
+            <td>{{ dept }}</td>
+            <td>{{ value }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

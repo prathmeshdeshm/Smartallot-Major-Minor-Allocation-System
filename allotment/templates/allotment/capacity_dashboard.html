@@ -1,0 +1,310 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .capacity-header {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 30px 0;
+        margin-bottom: 30px;
+        border-radius: 0 0 20px 20px;
+    }
+    .capacity-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+    .capacity-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+    }
+    .progress-bar-custom {
+        height: 25px;
+        border-radius: 12px;
+        font-weight: 600;
+    }
+    .status-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .status-available {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-filling {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .status-full {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .status-overflow {
+        background: #dc3545;
+        color: white;
+    }
+    .heat-available {background: linear-gradient(90deg, #e8f5e9 0%, #c8e6c9 100%);}
+    .heat-filling {background: linear-gradient(90deg, #fff7e6 0%, #ffe0b2 100%);}
+    .heat-full {background: linear-gradient(90deg, #ffe5e5 0%, #ffcdd2 100%);}
+    .heat-overflow {background: linear-gradient(90deg, #ffebee 0%, #ef9a9a 100%);} 
+    .heat-critical {background: linear-gradient(90deg, #fdecea 0%, #f5c6cb 100%);} 
+</style>
+
+<div class="capacity-header">
+    <div class="container">
+        <h1 class="mb-2">
+            <i class="fas fa-chart-bar me-3"></i>Capacity Dashboard
+        </h1>
+        <p class="mb-0 opacity-75">Real-time monitoring of course allocations and capacity utilization</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge bg-success">Available &lt;70%</span>
+            <span class="badge bg-warning text-dark">Filling 70-89%</span>
+            <span class="badge bg-danger">Full ≥90%</span>
+            <span class="badge bg-dark">Overflow &gt;100%</span>
+        </div>
+        <a href="{% url 'capacity_export_excel' %}" class="btn btn-outline-primary">
+            <i class="fas fa-file-excel me-2"></i>Export Capacity (Excel)
+        </a>
+    </div>
+    <!-- Summary Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card capacity-card text-center">
+                <div class="card-body">
+                    <div class="display-6 mb-2 text-primary">{{ total_branches }}</div>
+                    <div class="text-muted">Minor Branches</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card capacity-card text-center">
+                <div class="card-body">
+                    <div class="display-6 mb-2 text-info">{{ total_oes }}</div>
+                    <div class="text-muted">Open Electives</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card capacity-card text-center">
+                <div class="card-body">
+                    <div class="display-6 mb-2 text-success">{{ total_allocations }}</div>
+                    <div class="text-muted">Total Allocations</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card capacity-card text-center">
+                <div class="card-body">
+                    <div class="display-6 mb-2 text-warning">{{ avg_utilization }}%</div>
+                    <div class="text-muted">Avg Utilization</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Minor Branches Capacity -->
+    <div class="card capacity-card">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas fa-graduation-cap me-2"></i>Minor Branches Capacity Status
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Branch Name</th>
+                            <th>Department</th>
+                            <th class="text-center">Minor 1 Allocated</th>
+                            <th class="text-center">Minor 2 Allocated</th>
+                            <th class="text-center">Total Capacity</th>
+                            <th>Utilization</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for branch in branches_capacity %}
+                            <tr class="{% if branch.band == 'critical' %}heat-critical{% elif branch.band == 'overflow' %}heat-overflow{% elif branch.band == 'full' %}heat-full{% elif branch.band == 'filling' %}heat-filling{% else %}heat-available{% endif %}">
+                                <td>
+                                    <strong><a href="{% url 'capacity_detail_branch' branch.id %}">{{ branch.name }}</a></strong>
+                                </td>
+                                <td>
+                                    {% if branch.offering_dept %}
+                                        <span class="badge bg-secondary">{{ branch.offering_dept }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary">{{ branch.minor1_count }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ branch.minor2_count }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <strong>{{ branch.capacity }}</strong>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 25px;">
+                                        {% if branch.utilization_percent > 100 %}
+                                            <div class="progress-bar bg-danger" style="width: 100%;">
+                                                {{ branch.utilization_percent }}% (OVERFLOW!)
+                                            </div>
+                                        {% elif branch.utilization_percent >= 90 %}
+                                            <div class="progress-bar bg-warning" style="width: {{ branch.utilization_percent }}%;">
+                                                {{ branch.utilization_percent }}%
+                                            </div>
+                                        {% elif branch.utilization_percent >= 70 %}
+                                            <div class="progress-bar bg-info" style="width: {{ branch.utilization_percent }}%;">
+                                                {{ branch.utilization_percent }}%
+                                            </div>
+                                        {% else %}
+                                            <div class="progress-bar bg-success" style="width: {{ branch.utilization_percent }}%;">
+                                                {{ branch.utilization_percent }}%
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if branch.utilization_percent > 100 %}
+                                        <span class="status-badge status-overflow">
+                                            <i class="fas fa-exclamation-triangle"></i> OVERFLOW
+                                        </span>
+                                    {% elif branch.utilization_percent >= 90 %}
+                                        <span class="status-badge status-full">
+                                            <i class="fas fa-check-circle"></i> Full
+                                        </span>
+                                    {% elif branch.utilization_percent >= 50 %}
+                                        <span class="status-badge status-filling">
+                                            <i class="fas fa-spinner"></i> Filling
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-available">
+                                            <i class="fas fa-check"></i> Available
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Open Electives Capacity -->
+    <div class="card capacity-card mt-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas fa-book-open me-2"></i>Open Electives Capacity Status
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>OE Name</th>
+                            <th>Department</th>
+                            <th class="text-center">Allocated</th>
+                            <th class="text-center">Capacity</th>
+                            <th>Utilization</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for oe in oes_capacity %}
+                            <tr class="{% if oe.band == 'critical' %}heat-critical{% elif oe.band == 'overflow' %}heat-overflow{% elif oe.band == 'full' %}heat-full{% elif oe.band == 'filling' %}heat-filling{% else %}heat-available{% endif %}">
+                                <td><strong>{{ oe.name }}</strong></td>
+                                <td>
+                                    {% if oe.offering_dept %}
+                                        <span class="badge bg-secondary">{{ oe.offering_dept }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary">{{ oe.allocated_count }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <strong>{{ oe.capacity }}</strong>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 25px;">
+                                        {% if oe.utilization_percent > 100 %}
+                                            <div class="progress-bar bg-danger" style="width: 100%;">
+                                                {{ oe.utilization_percent }}% (OVERFLOW!)
+                                            </div>
+                                        {% elif oe.utilization_percent >= 90 %}
+                                            <div class="progress-bar bg-warning" style="width: {{ oe.utilization_percent }}%;">
+                                                {{ oe.utilization_percent }}%
+                                            </div>
+                                        {% elif oe.utilization_percent >= 70 %}
+                                            <div class="progress-bar bg-info" style="width: {{ oe.utilization_percent }}%;">
+                                                {{ oe.utilization_percent }}%
+                                            </div>
+                                        {% else %}
+                                            <div class="progress-bar bg-success" style="width: {{ oe.utilization_percent }}%;">
+                                                {{ oe.utilization_percent }}%
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if oe.utilization_percent > 100 %}
+                                        <span class="status-badge status-overflow">
+                                            <i class="fas fa-exclamation-triangle"></i> OVERFLOW
+                                        </span>
+                                    {% elif oe.utilization_percent >= 90 %}
+                                        <span class="status-badge status-full">
+                                            <i class="fas fa-check-circle"></i> Full
+                                        </span>
+                                    {% elif oe.utilization_percent >= 50 %}
+                                        <span class="status-badge status-filling">
+                                            <i class="fas fa-spinner"></i> Filling
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-available">
+                                            <i class="fas fa-check"></i> Available
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warnings -->
+    {% if overflow_courses %}
+        <div class="alert alert-danger mt-4" role="alert">
+            <h5 class="alert-heading">
+                <i class="fas fa-exclamation-triangle me-2"></i>Capacity Overflow Detected!
+            </h5>
+            <p>The following courses have exceeded their capacity. This indicates a data integrity issue:</p>
+            <ul class="mb-0">
+                {% for course in overflow_courses %}
+                    <li><strong>{{ course.name }}</strong>: {{ course.allocated }} allocated / {{ course.capacity }} capacity</li>
+                {% endfor %}
+            </ul>
+            <hr>
+            <p class="mb-0">
+                <strong>Action Required:</strong> Please review the allocation logic or increase capacity limits.
+            </p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

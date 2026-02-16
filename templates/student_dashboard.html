@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Styles for the drag-and-drop lists */
+    .preference-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    .sortable-list {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        min-height: 200px;
+        background-color: #f9f9f9;
+    }
+    .list-group-item {
+        cursor: grab;
+        background-color: #fff;
+        border: 1px solid #eee;
+        margin-bottom: 5px;
+        padding: 10px;
+        border-radius: 3px;
+    }
+    .list-group-item:active {
+        cursor: grabbing;
+    }
+    .sortable-ghost {
+        opacity: 0.4;
+        background: #c8ebfb;
+    }
+</style>
+
+<div class="container mt-4">
+    <h1 class="mb-4">Student Dashboard</h1>
+    <p>Welcome, {{ student.name }} ({{ student.roll_no }})</p>
+
+    <div class="card mb-4 shadow-sm" style="background-color: #e8f4f8;">
+        <div class="card-body">
+            <p><strong>Grand Total Marks (From Records):</strong> <span style="font-size: 1.2rem; color: #0066cc; font-weight: bold;">{{ student.marks }}</span></p>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header"><h4>Your Allocation Results</h4></div>
+        <div class="card-body">
+            <p><strong>Minor 1:</strong> {{ minor1_allocation.minor_branch.name|default:"Not Yet Allocated" }}</p>
+            <p><strong>Minor 2:</strong> {{ minor2_allocation.minor_branch.name|default:"Not Yet Allocated" }}</p>
+            <p><strong>Open Elective:</strong> {{ oe_allocation.oe_subject.name|default:"Not Yet Allocated" }}</p>
+        </div>
+    </div>
+
+    <form id="preference-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="minor1_order" id="minor1_order">
+        <input type="hidden" name="minor2_order" id="minor2_order">
+        <input type="hidden" name="oe_order" id="oe_order">
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header"><h5>Minor 1 Preferences</h5></div>
+            <div class="card-body preference-container">
+                <div>
+                    <h6>Available Minors</h6>
+                    <div id="available-m1" class="sortable-list">
+                        {% for branch in available_m1 %}
+                            {% if branch.id not in disabled_m1_ids %}
+                                <div class="list-group-item" data-id="{{ branch.id }}">{{ branch.name }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h6>Your Preferences (Drag to reorder)</h6>
+                    <div id="selected-m1" class="sortable-list">
+                        {% for pref in selected_m1_prefs %}
+                            <div class="list-group-item" data-id="{{ pref.minor_branch.id }}">{{ pref.minor_branch.name }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header"><h5>Minor 2 Preferences</h5></div>
+            <div class="card-body preference-container">
+                <div>
+                    <h6>Available Minors</h6>
+                    <div id="available-m2" class="sortable-list">
+                         {% for branch in available_m2 %}
+                            {% if branch.id not in disabled_m2_ids %}
+                                <div class="list-group-item" data-id="{{ branch.id }}">{{ branch.name }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h6>Your Preferences (Drag to reorder)</h6>
+                    <div id="selected-m2" class="sortable-list">
+                        {% for pref in selected_m2_prefs %}
+                            <div class="list-group-item" data-id="{{ pref.minor_branch.id }}">{{ pref.minor_branch.name }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header"><h5>Open Elective Preferences</h5></div>
+            <div class="card-body preference-container">
+                <div>
+                    <h6>Available Open Electives</h6>
+                    <div id="available-oe" class="sortable-list">
+                         {% for subject in available_oe %}
+                            {% if subject.id not in disabled_oe_ids %}
+                                <div class="list-group-item" data-id="{{ subject.id }}">{{ subject.name }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <h6>Your Preferences (Drag to reorder)</h6>
+                    <div id="selected-oe" class="sortable-list">
+                         {% for pref in selected_oe_prefs %}
+                            <div class="list-group-item" data-id="{{ pref.oe_subject.id }}">{{ pref.oe_subject.name }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-3 btn-lg">Save All Preferences</button>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<script>
+    // Define disabled IDs from context
+    const disabledM1Ids = new Set([{% for id in disabled_m1_ids %}{{ id }},{% endfor %}]);
+    const disabledM2Ids = new Set([{% for id in disabled_m2_ids %}{{ id }},{% endfor %}]);
+    const disabledOEIds = new Set([{% for id in disabled_oe_ids %}{{ id }},{% endfor %}]);
+    
+    // Map of group names to their disabled ID sets
+    const disabledIdsMap = {
+        'minor1_group': disabledM1Ids,
+        'minor2_group': disabledM2Ids,
+        'oe_group': disabledOEIds
+    };
+
+    // Helper function to initialize a sortable group
+    function initSortable(availableId, selectedId, groupName) {
+        const availableEl = document.getElementById(availableId);
+        const selectedEl = document.getElementById(selectedId);
+        const disabledIds = disabledIdsMap[groupName] || new Set();
+
+        const sortableOptions = {
+            group: {
+                name: groupName,
+                put: function(to, from, drag) {
+                    // Check if the item being dragged is disabled
+                    const itemId = parseInt(drag.dataset.id);
+                    if (disabledIds.has(itemId)) {
+                        console.warn(`Cannot select disabled item: ${itemId}`);
+                        return false;
+                    }
+                    return true;
+                }
+            },
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: function(evt) {
+                // If a disabled item was somehow added to selected, move it back
+                const selectedContainer = document.getElementById(selectedId);
+                if (selectedContainer) {
+                    const items = selectedContainer.querySelectorAll('.list-group-item');
+                    items.forEach(item => {
+                        const itemId = parseInt(item.dataset.id);
+                        if (disabledIds.has(itemId)) {
+                            // Move it back to available
+                            availableEl.appendChild(item);
+                            alert(`Warning: ${item.textContent} is not eligible for your major. It has been removed from your preferences.`);
+                        }
+                    });
+                }
+            }
+        };
+
+        new Sortable(availableEl, sortableOptions);
+        new Sortable(selectedEl, sortableOptions);
+    }
+
+    // Initialize all preference groups
+    initSortable('available-m1', 'selected-m1', 'minor1_group');
+    initSortable('available-m2', 'selected-m2', 'minor2_group');
+    initSortable('available-oe', 'selected-oe', 'oe_group');
+
+    // Before submitting the form, update the hidden inputs with the ordered IDs
+    document.getElementById('preference-form').addEventListener('submit', function(e) {
+        function updateHiddenInput(selectedId, hiddenInputId) {
+            const selectedItems = document.querySelectorAll(`#${selectedId} .list-group-item`);
+            const orderedIds = Array.from(selectedItems).map(item => item.dataset.id);
+            document.getElementById(hiddenInputId).value = orderedIds.join(',');
+        }
+
+        updateHiddenInput('selected-m1', 'minor1_order');
+        updateHiddenInput('selected-m2', 'minor2_order');
+        updateHiddenInput('selected-oe', 'oe_order');
+    });
+</script>
+{% endblock %}

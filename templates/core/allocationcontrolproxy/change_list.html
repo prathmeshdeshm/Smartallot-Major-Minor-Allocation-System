@@ -1,0 +1,16 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools %}
+  <div style="padding: 10px; border-bottom: 1px solid #ddd; background: #f8f8f8; margin-bottom: 15px;">
+    <h3 style="margin-top: 0;">Execute Full Allocation</h3>
+    <form method="POST" style="margin-bottom: 0;">
+        {% csrf_token %}
+        <p>Click the button below to run the complete allocation for Minors and Open Electives. This will process all eligible students who have submitted preferences.</p>
+        <p><strong>Warning:</strong> This process is irreversible without a manual reset.</p>
+        <button type="submit" name="run_full_allocation" class="button default" style="background-color: #28a745; color: white;">
+            Run Full Allocation Process
+        </button>
+    </form>
+  </div>
+  {{ block.super }}
+{% endblock %}

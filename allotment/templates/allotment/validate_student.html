@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+{% block title %}Student Identity Verification - SmartAllot{% endblock %}
+
+{% block content %}
+<style>
+    .validation-container {
+        max-width: 600px;
+        margin: 60px auto;
+        padding: 40px;
+    }
+
+    .validation-header {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        padding: 40px;
+        border-radius: 12px 12px 0 0;
+        text-align: center;
+        margin-bottom: 0;
+    }
+
+    .validation-header h2 {
+        font-size: 1.8rem;
+        margin-bottom: 10px;
+        font-weight: 700;
+    }
+
+    .validation-header p {
+        font-size: 0.95rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+
+    .validation-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+    }
+
+    .info-section {
+        background: rgba(37, 99, 235, 0.05);
+        border-left: 4px solid #2563eb;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 30px;
+        font-size: 0.95rem;
+        color: #1e293b;
+    }
+
+    .info-section i {
+        color: #2563eb;
+        margin-right: 8px;
+        font-weight: 600;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #1e293b;
+        display: block;
+        font-size: 0.95rem;
+    }
+
+    .form-control {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        outline: none;
+    }
+
+    .form-control[readonly] {
+        background-color: #f3f4f6;
+        cursor: not-allowed;
+    }
+
+    .form-select {
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+
+    .form-select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        outline: none;
+    }
+
+    .submit-btn {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        padding: 12px 32px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+    }
+
+    .submit-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .error-message {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        border-left: 4px solid #ef4444;
+        color: #991b1b;
+        padding: 12px 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .error-message i {
+        font-size: 1.2rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+    .field-help-text {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-top: 5px;
+    }
+
+    .validation-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.9;
+    }
+
+    .required-notice {
+        font-size: 0.85rem;
+        color: #6b7280;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e5e7eb;
+        text-align: center;
+    }
+
+    .required-notice i {
+        color: #ef4444;
+    }
+
+    @media (max-width: 600px) {
+        .validation-container {
+            margin: 20px;
+            padding: 20px;
+        }
+
+        .validation-card {
+            padding: 20px;
+        }
+
+        .validation-header {
+            padding: 30px 20px;
+        }
+
+        .validation-header h2 {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+
+<div class="validation-container">
+    <div class="validation-header">
+        <div class="validation-icon">
+            <i class="fas fa-id-card"></i>
+        </div>
+        <h2>Student Identity Verification</h2>
+        <p>Please verify your details to access the allocation dashboard</p>
+    </div>
+
+    <div class="validation-card">
+        <!-- Information Section -->
+        <div class="info-section">
+            <i class="fas fa-info-circle"></i>
+            <strong>Important:</strong> Please enter your details exactly as they appear in your registration records.
+            All fields must match precisely for successful verification.
+        </div>
+
+        <!-- Validation Form -->
+        <form method="POST" action="{% url 'validate_student_form' %}" novalidate>
+            {% csrf_token %}
+
+            <!-- STEP 1: Roll Number and Full Name -->
+            {% if step == 1 %}
+            <div style="background: rgba(37, 99, 235, 0.05); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                <strong>Step 1 of 2:</strong> Verify your identity with your registration records
+            </div>
+
+            <!-- Roll Number (Pre-filled, Read-only) -->
+            <div class="form-group">
+                <label for="id_roll_no" class="form-label">
+                    <i class="fas fa-id-badge me-1"></i>Roll Number
+                    <span style="color: #ef4444;">*</span>
+                </label>
+                {{ form.roll_no }}
+                <div class="field-help-text">Your unique roll number (auto-filled)</div>
+                {% if form.roll_no.errors %}
+                <div class="error-message" style="margin-top: 8px; padding: 8px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ form.roll_no.errors.0 }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Full Name -->
+            <div class="form-group">
+                <label for="id_full_name" class="form-label">
+                    <i class="fas fa-user me-1"></i>Full Name
+                    <span style="color: #ef4444;">*</span>
+                </label>
+                {{ form.full_name }}
+                <div class="field-help-text">Enter your name exactly as it appears in records</div>
+                {% if form.full_name.errors %}
+                <div class="error-message" style="margin-top: 8px; padding: 8px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ form.full_name.errors.0 }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- STEP 2: Marks, Percentage, Branch, Email -->
+            {% elif step == 2 %}
+            <div style="background: rgba(37, 99, 235, 0.05); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                <strong>Step 2 of 2:</strong> Provide your academic details
+            </div>
+
+            <!-- Marks -->
+            <div class="form-group">
+                <label for="id_marks" class="form-label">
+                    <i class="fas fa-calculator me-1"></i>Grand Total Marks
+                    <span style="color: #ef4444;">*</span>
+                </label>
+                {{ form.marks }}
+                <div class="field-help-text">Your total marks as per records</div>
+                {% if form.marks.errors %}
+                <div class="error-message" style="margin-top: 8px; padding: 8px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ form.marks.errors.0 }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Percentage -->
+            <div class="form-group">
+                <label for="id_percentage" class="form-label">
+                    <i class="fas fa-percent me-1"></i>Percentage (%)
+                    <span style="color: #ef4444;">*</span>
+                </label>
+                {{ form.percentage }}
+                <div class="field-help-text">Your percentage (0-100)</div>
+                {% if form.percentage.errors %}
+                <div class="error-message" style="margin-top: 8px; padding: 8px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ form.percentage.errors.0 }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Branch (READ-ONLY from imported data) -->
+            <div class="form-group">
+                <label for="id_branch" class="form-label">
+                    <i class="fas fa-building me-1"></i>Major Branch
+                    <span style="color: #ef4444;">*</span>
+                </label>
+                <input type="text" id="id_branch" class="form-control" value="{{ student.get_department_display }}"
+                    readonly disabled>
+                <div class="field-help-text">Your major branch from records (cannot be changed)</div>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+                <label for="id_email" class="form-label">
+                    <i class="fas fa-envelope me-1"></i>Email Address
+                    <span style="color: #ef4444;">*</span>
+                </label>
+                {{ form.email }}
+                <div class="field-help-text">Your email address</div>
+                {% if form.email.errors %}
+                <div class="error-message" style="margin-top: 8px; padding: 8px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ form.email.errors.0 }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Submit Button -->
+            <button type="submit" class="submit-btn">
+                {% if step == 1 %}
+                <i class="fas fa-arrow-right me-2"></i>Verify & Proceed to Step 2
+                {% elif step == 2 %}
+                <i class="fas fa-check-circle me-2"></i>Complete Validation
+                {% endif %}
+            </button>
+
+            <div class="required-notice">
+                <i class="fas fa-asterisk"></i> All fields are mandatory and must match your registration records
+                exactly
+            </div>
+        </form>
+
+        <!-- Additional Help -->
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <p style="font-size: 0.9rem; color: #6b7280; margin-bottom: 10px;">
+                <strong>Need Help?</strong>
+            </p>
+            <ul style="font-size: 0.9rem; color: #6b7280; margin: 0; padding-left: 20px;">
+                <li>Ensure all information matches your registration records exactly</li>
+                <li>Check for spaces, spelling, and case sensitivity</li>
+                <li>If verification fails repeatedly, please contact the administrator</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Prevent back button after successful validation
+    if ({{ student.is_validated | lower }} === true) {
+        window.location.href = "{% url 'student_dashboard' %}";
+    }
+
+    // Form validation feedback
+    document.querySelector('form').addEventListener('submit', function (e) {
+        const submitBtn = document.querySelector('.submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Verifying...';
+    });
+</script>
+{% endblock %}

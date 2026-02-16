@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .absconding-header {
+        background: #fff3cd;
+        border-left: 4px solid #ff6b6b;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+
+    .absconding-header h4 {
+        color: #856404;
+        margin: 0 0 5px 0;
+    }
+
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .stat-box {
+        background: white;
+        padding: 18px 14px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 2.2em;
+        font-weight: bold;
+    }
+
+    .stat-number.red {
+        color: #ff6b6b;
+    }
+
+    .stat-number.green {
+        color: #10b981;
+    }
+
+    .stat-number.blue {
+        color: #2563eb;
+    }
+
+    .stat-number.orange {
+        color: #f59e0b;
+    }
+
+    .stat-number.purple {
+        color: #7c3aed;
+    }
+
+    .stat-label {
+        color: #666;
+        font-size: 0.85em;
+        margin-top: 5px;
+    }
+
+    .table-wrapper {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .table-wrapper table {
+        margin-bottom: 0;
+    }
+
+    .table-wrapper thead {
+        background: #f8f9fa;
+    }
+
+    .btn-action {
+        padding: 10px 20px;
+        margin-right: 10px;
+        font-weight: 500;
+        border-radius: 5px;
+    }
+
+    .result-card {
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+
+    .result-card .card-header {
+        font-weight: 600;
+    }
+
+    .result-detail-table th {
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+</style>
+
+<div class="container my-4">
+    <h2><i class="fas fa-user-slash me-2"></i>Absconding Students Management</h2>
+
+    <div class="absconding-header">
+        <h4><i class="fas fa-exclamation-triangle me-2"></i>Students Who Didn't Submit Preferences</h4>
+        <p class="mb-0">These students either haven't created accounts or haven't submitted any preferences.
+            Click <strong>Auto Allocate</strong> to generate random preferences and allocate them based on merit.</p>
+    </div>
+
+    <!-- Action Buttons -->
+    <form method="post" class="mb-4" id="absconding-form">
+        {% csrf_token %}
+        <button name="identify" value="1" class="btn btn-warning btn-action"
+            title="Scan imported students and identify those without preferences">
+            <i class="fas fa-search me-2"></i>Identify Absconding Students
+        </button>
+        <button name="auto_allocate" value="1" class="btn btn-success btn-action" id="btn-auto-allocate"
+            title="Generate random preferences and auto-allocate based on merit"
+            onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i>Allocating…'; this.form.submit();">
+            <i class="fas fa-magic me-2"></i>Auto Allocate Absconding Students
+        </button>
+    </form>
+
+    <!-- ============================================================ -->
+    <!-- ALLOCATION RESULT SUMMARY (shown after auto_allocate POST)   -->
+    <!-- ============================================================ -->
+    {% if allocation_result %}
+    <div class="result-card card border-0 shadow">
+        <div class="card-header bg-dark text-white d-flex align-items-center">
+            <i class="fas fa-chart-bar me-2"></i>
+            <span>Auto-Allocation Results</span>
+        </div>
+        <div class="card-body">
+            <div class="stats-overview mb-3">
+                <div class="stat-box">
+                    <div class="stat-number blue">{{ allocation_result.total_found }}</div>
+                    <div class="stat-label">Total Found</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number purple">{{ allocation_result.accounts_created }}</div>
+                    <div class="stat-label">Accounts Created</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number blue">{{ allocation_result.prefs_generated }}</div>
+                    <div class="stat-label">Prefs Generated</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number green">{{ allocation_result.minor_allocated }}</div>
+                    <div class="stat-label">Minor Allocated</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number green">{{ allocation_result.oe_allocated }}</div>
+                    <div class="stat-label">OE Allocated</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number orange">{{ allocation_result.minor_waitlisted }}</div>
+                    <div class="stat-label">Minor Waitlisted</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number orange">{{ allocation_result.oe_waitlisted }}</div>
+                    <div class="stat-label">OE Waitlisted</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number red">{{ allocation_result.skipped }}</div>
+                    <div class="stat-label">Skipped</div>
+                </div>
+            </div>
+
+            {% if allocation_result.details %}
+            <h6 class="text-muted mt-4 mb-2"><i class="fas fa-list me-1"></i> Per-Student Detail</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover result-detail-table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Roll No</th>
+                            <th>Marks</th>
+                            <th>Allocated Minor</th>
+                            <th>Allocated OE</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in allocation_result.details %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><strong>{{ d.name }}</strong></td>
+                            <td><code>{{ d.roll }}</code></td>
+                            <td>{{ d.marks }}</td>
+                            <td>
+                                {% if d.minor == 'WAITLISTED' %}
+                                <span class="badge bg-warning text-dark"><i
+                                        class="fas fa-clock me-1"></i>Waitlisted</span>
+                                {% elif d.minor %}
+                                <span class="badge bg-primary">{{ d.minor }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if d.oe == 'WAITLISTED' %}
+                                <span class="badge bg-warning text-dark"><i
+                                        class="fas fa-clock me-1"></i>Waitlisted</span>
+                                {% elif d.oe %}
+                                <span class="badge bg-info">{{ d.oe }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if d.status == 'ALLOCATED' %}
+                                <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Allocated</span>
+                                {% elif d.status == 'PARTIAL' %}
+                                <span class="badge bg-info"><i class="fas fa-exclamation-circle me-1"></i>Partial</span>
+                                {% elif d.status == 'WAITLISTED' %}
+                                <span class="badge bg-warning text-dark"><i
+                                        class="fas fa-hourglass-half me-1"></i>Waitlisted</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ d.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Overall Statistics -->
+    <div class="stats-overview">
+        <div class="stat-box">
+            <div class="stat-number red">{{ total_absconding }}</div>
+            <div class="stat-label">Total Absconding Students</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number green">{{ allocated_absconding }}</div>
+            <div class="stat-label">Auto-Allocated</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number orange">{{ pending_absconding }}</div>
+            <div class="stat-label">Still Pending</div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="table-wrapper">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Full Name</th>
+                    <th>Roll Number</th>
+                    <th>Major Branch</th>
+                    <th>Marks</th>
+                    <th>Allocated Minor</th>
+                    <th>Allocated OE</th>
+                    <th>Status</th>
+                    <th>Identified At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in absconding_students %}
+                <tr>
+                    <td><strong>{{ rec.imported_student.full_name }}</strong></td>
+                    <td><code>{{ rec.imported_student.roll_no }}</code></td>
+                    <td>{{ rec.imported_student.get_major_branch_display }}</td>
+                    <td><span style="font-weight:600; color:#0066cc;">{{ rec.imported_student.marks }}</span></td>
+                    <td>
+                        {% if rec.allocated_minor %}
+                        <span class="badge bg-primary">{{ rec.allocated_minor.name }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if rec.allocated_oe %}
+                        <span class="badge bg-info">{{ rec.allocated_oe.name }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if rec.auto_allocated %}
+                        <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Allocated</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
+                        {% endif %}
+                    </td>
+                    <td><small class="text-muted">{{ rec.identified_at|date:"d M Y, H:i" }}</small></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4">
+                        <i class="fas fa-check-circle fa-2x text-success mb-3" style="display: block;"></i>
+                        <p class="text-muted mb-0"><strong>No absconding students!</strong></p>
+                        <p class="text-muted mb-0">All students have submitted their preferences.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

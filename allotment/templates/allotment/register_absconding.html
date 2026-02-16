@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Register Absconding Student - SmartAllot{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'admin_dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'student_list' %}">Manage Students</a></li>
+            <li class="breadcrumb-item active">Register Absconding Student</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header"
+                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-plus me-2"></i>
+                        Register Absconding Student
+                    </h4>
+                    <small class="opacity-75">Create a student account from imported data</small>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Warning Alert -->
+                    <div class="alert alert-warning d-flex align-items-start">
+                        <i class="fas fa-exclamation-triangle me-3 mt-1"></i>
+                        <div>
+                            <strong>Important:</strong> This will create a new student account with the following
+                            details.
+                            The default password will be set to the student's roll number.
+                        </div>
+                    </div>
+
+                    <!-- Student Details Preview -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted mb-3">
+                                <i class="fas fa-id-card me-2"></i>Student Information
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Full Name</label>
+                                    <p class="fw-semibold mb-0">{{ imported.full_name }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Roll Number</label>
+                                    <p class="fw-semibold mb-0">{{ imported.roll_no }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Department</label>
+                                    <p class="fw-semibold mb-0">
+                                        <span class="badge bg-info">{{ imported.get_major_branch_display }}</span>
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Grand Total Marks</label>
+                                    <p class="fw-semibold mb-0" style="color: #0066cc;">{{ imported.marks }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Percentage</label>
+                                    <p class="fw-semibold mb-0">{{ imported.percentage }}%</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Auto-Allocation Status</label>
+                                    <p class="mb-0">
+                                        {% if absconding.auto_allocated %}
+                                        <span class="badge bg-success"><i
+                                                class="fas fa-check-circle me-1"></i>Auto-Allocated</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Pending</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Account Details -->
+                    <div class="card border-primary mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary mb-3">
+                                <i class="fas fa-key me-2"></i>Account Details (Auto-generated)
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Username</label>
+                                    <p class="fw-semibold mb-0 font-monospace">{{ imported.roll_no|lower }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Default Password</label>
+                                    <p class="fw-semibold mb-0 font-monospace">{{ imported.roll_no }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Email</label>
+                                    <p class="fw-semibold mb-0">{{ imported.roll_no|lower }}@student.edu</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Validation</label>
+                                    <p class="mb-0">
+                                        <span class="badge bg-success"><i
+                                                class="fas fa-check me-1"></i>Pre-validated</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Allocations to be transferred -->
+                    {% if absconding.allocated_minor or absconding.allocated_oe %}
+                    <div class="card border-success mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title text-success mb-3">
+                                <i class="fas fa-exchange-alt me-2"></i>Allocations to Transfer
+                            </h6>
+                            <div class="row g-3">
+                                {% if absconding.allocated_minor %}
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Minor Branch</label>
+                                    <p class="fw-semibold mb-0">
+                                        <span class="badge bg-primary">{{ absconding.allocated_minor.name }}</span>
+                                    </p>
+                                </div>
+                                {% endif %}
+                                {% if absconding.allocated_oe %}
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small">Open Elective</label>
+                                    <p class="fw-semibold mb-0">
+                                        <span class="badge bg-primary">{{ absconding.allocated_oe.name }}</span>
+                                    </p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted mt-2 d-block">These allocations will be linked to the new student
+                                account.</small>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex gap-3 justify-content-end">
+                            <a href="{% url 'student_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-user-plus me-2"></i> Register Student
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

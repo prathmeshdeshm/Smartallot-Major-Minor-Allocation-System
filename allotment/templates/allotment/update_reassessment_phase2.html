@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Update Reassessment - Results Submission{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="card mb-4" style="border-left: 5px solid #10b981;">
+                <div class="card-body">
+                    <h2 class="mb-2"><i class="fas fa-check-circle me-2" style="color: #10b981;"></i>Results Update - Phase 2</h2>
+                    <p class="text-muted mb-0">Submit your passing marksheet after clearing backlog</p>
+                </div>
+            </div>
+
+            <!-- Reassessment Info -->
+            <div class="card mb-4">
+                <div class="card-header" style="background-color: #ecfdf5;">
+                    <h5 class="mb-0 text-success"><i class="fas fa-file-invoice me-2"></i>Reassessment Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Declared Date:</strong> {{ reassessment.declared_at|date:"d M, Y H:i" }}</p>
+                            <p><strong>Backlog Subjects:</strong> {{ reassessment.backlog_subjects }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Current Status:</strong> 
+                                <span class="badge bg-info">{{ reassessment.get_status_display }}</span>
+                            </p>
+                            <p><strong>Fail Marksheet:</strong> 
+                                {% if reassessment.fail_marksheet %}
+                                    <a href="{{ reassessment.fail_marksheet.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                        <i class="fas fa-download me-1"></i>Download
+                                    </a>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Indicator -->
+            {% if can_update %}
+                <div class="alert alert-success mb-4">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Phase 2 Active:</strong> University results are available. Submit your passing marksheet now.
+                </div>
+            {% else %}
+                <div class="alert alert-warning mb-4">
+                    <i class="fas fa-hourglass-end me-2"></i>
+                    <strong>Phase 2 Not Open:</strong> Please wait for admin to open the results submission phase.
+                </div>
+            {% endif %}
+
+            <!-- Form -->
+            <div class="card">
+                <div class="card-header" style="background-color: #f3f4f6;">
+                    <h5 class="mb-0"><i class="fas fa-upload me-2"></i>Upload Passing Marksheet & Details</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <!-- Passing Marksheet Upload -->
+                        <div class="mb-3">
+                            <label for="passing_marksheet" class="form-label">
+                                <i class="fas fa-certificate me-1"></i>Passing Marksheet
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.passing_marksheet }}
+                            <small class="text-muted d-block mt-1">Upload marksheet showing cleared subject(s). Accepted formats: PDF, JPG, PNG (Max 5MB)</small>
+                            {% if form.passing_marksheet.errors %}
+                                <div class="alert alert-danger mt-2">{{ form.passing_marksheet.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Additional Details -->
+                        <div class="mb-3">
+                            <label for="update_details" class="form-label">
+                                <i class="fas fa-pencil-alt me-1"></i>Additional Details (Optional)
+                            </label>
+                            {{ form.update_details }}
+                            <small class="text-muted d-block mt-1">Any relevant information about your reassessment or result</small>
+                            {% if form.update_details.errors %}
+                                <div class="alert alert-danger mt-2">{{ form.update_details.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Information Box -->
+                        <div class="alert alert-light border mb-3">
+                            <h6><i class="fas fa-lightbulb me-1" style="color: #10b981;"></i>After Submission</h6>
+                            <ul class="mb-0 small">
+                                <li>Admin reviews your passing marksheet</li>
+                                <li>Your academic status will be updated to "Cleared After Reassessment"</li>
+                                <li>You'll become eligible for allocations</li>
+                                <li>You'll receive notification of approval status</li>
+                            </ul>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success btn-lg rounded-3" style="font-weight: 600;" {% if not can_update %}disabled{% endif %}>
+                                <i class="fas fa-paper-plane me-2"></i>Submit Results
+                            </button>
+                            <a href="{% url 'my_reassessments' %}" class="btn btn-outline-secondary btn-lg rounded-3" style="font-weight: 600;">
+                                <i class="fas fa-arrow-left me-2"></i>Back
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        border-radius: 0.375rem;
+        border: 1px solid #d1d5db;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+</style>
+{% endblock %}

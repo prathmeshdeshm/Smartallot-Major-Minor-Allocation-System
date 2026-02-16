@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% block title %}Admin Login - SmartAllot{% endblock %}
+
+{% block content %}
+<style>
+    .auth-container {
+        min-height: calc(100vh - 60px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f8fafc 0%, #ede9fe 100%);
+        padding: 2rem;
+    }
+
+    .auth-card {
+        background: white;
+        width: 100%;
+        max-width: 450px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .auth-header {
+        background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+        padding: 2rem;
+        color: white;
+        text-align: center;
+    }
+
+    .auth-header h2 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.8rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .auth-header .subtitle {
+        margin: 0;
+        font-size: 0.95rem;
+        opacity: 0.95;
+    }
+
+    .auth-body {
+        padding: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
+        color: #1e293b;
+        font-weight: 600;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #7c3aed;
+        box-shadow: 0 0 0 3px #ede9fe;
+        outline: none;
+    }
+
+    .btn-login {
+        width: 100%;
+        border: none;
+        padding: 0.85rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-login:active {
+        transform: translateY(0);
+    }
+
+    .alert {
+        border-radius: 8px;
+        border-left: 4px solid;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .alert-danger {
+        background: #fee2e2;
+        border-left-color: #ef4444;
+        color: #7f1d1d;
+    }
+
+    .alert i {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .auth-footer {
+        border-top: 1px solid #e2e8f0;
+        padding: 1.5rem;
+        background: #f8fafc;
+    }
+
+    .footer-link {
+        color: #7c3aed;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .footer-link:hover {
+        color: #2563eb;
+        text-decoration: underline;
+    }
+
+    .footer-note {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        color: #64748b;
+        padding-top: 1rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .footer-note i {
+        color: #f59e0b;
+        margin-right: 0.5rem;
+    }
+
+    @media (max-width: 640px) {
+        .auth-container {
+            padding: 1rem;
+        }
+
+        .auth-body {
+            padding: 1.5rem;
+        }
+
+        .auth-header {
+            padding: 1.5rem;
+        }
+    }
+</style>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <!-- Header -->
+        <div class="auth-header">
+            <h2>
+                <i class="fas fa-user-shield"></i>
+                Admin Login
+            </h2>
+            <p class="subtitle">Administrator access</p>
+        </div>
+
+        <!-- Body -->
+        <div class="auth-body">
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <div>
+                        {% for error in form.non_field_errors %}
+                            {{ error }}<br>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="id_username">Username</label>
+                    <input
+                        type="text"
+                        id="id_username"
+                        name="username"
+                        class="form-control"
+                        placeholder="Enter admin username"
+                        value="{{ form.username.value|default_if_none:'' }}"
+                        required
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label for="id_password">Password</label>
+                    <input
+                        type="password"
+                        id="id_password"
+                        name="password"
+                        class="form-control"
+                        placeholder="Enter admin password"
+                        required
+                    />
+                </div>
+
+                <button type="submit" class="btn-login">
+                    <i class="fas fa-sign-in-alt me-2"></i>Login
+                </button>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="auth-footer">
+            <p class="mb-2">
+                <i class="fas fa-key"></i>
+                <a href="{% url 'forgot_password' %}" class="footer-link">Reset password with OTP</a>
+            </p>
+            <div class="footer-note">
+                <i class="fas fa-info-circle"></i>
+                Admin accounts are created by system administrators only
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .form-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+    }
+
+    .form-header h1 {
+        font-family: 'Poppins', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    .form-card {
+        border: none;
+        border-radius: 0.75rem;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .form-body {
+        padding: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+    }
+
+    .form-control,
+    .form-select {
+        border: 2px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        background: white;
+        outline: none;
+    }
+
+    .form-text {
+        font-size: 0.85rem;
+        color: #64748b;
+        margin-top: 0.5rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .btn-submit {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-cancel {
+        background: #64748b;
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        text-decoration: none;
+        display: inline-block;
+        margin-left: 0.5rem;
+    }
+
+    .btn-cancel:hover {
+        background: #475569;
+        transform: translateY(-2px);
+    }
+
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 2rem;
+    }
+
+    .info-box {
+        background: #f0fdf4;
+        border-left: 4px solid #10b981;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-box p {
+        margin: 0;
+        color: #047857;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 768px) {
+        .form-header {
+            padding: 2rem 0;
+        }
+
+        .form-body {
+            padding: 1.5rem;
+        }
+
+        .button-group {
+            flex-direction: column;
+        }
+
+        .btn-submit,
+        .btn-cancel {
+            width: 100%;
+            margin-left: 0;
+        }
+    }
+</style>
+
+<div class="form-header">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <h1 class="display-5 fw-bold mb-2">Add OE Rule</h1>
+                <p class="lead mb-0">Set eligibility criteria for {{ oe.name }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card form-card">
+                <div class="form-body">
+                    <div class="info-box">
+                        <p><i class="fas fa-lightbulb me-2"></i>Define who can enroll in this open elective based on performance or department</p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-shield-alt me-2" style="color: #10b981;"></i>Rule Type</label>
+                            <select name="rule_type" id="id_rule_type" class="form-select" required>
+                                <option value="MIN_PERCENTAGE">Minimum Percentage</option>
+                                <option value="DEPARTMENT_BLOCK">Blocked Departments</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="min-percentage-group">
+                            <label class="form-label"><i class="fas fa-chart-line me-2" style="color: #10b981;"></i>Minimum Percentage Required</label>
+                            <input type="number"
+                                   name="min_percentage"
+                                   class="form-control"
+                                   placeholder="e.g. 75"
+                                   min="0"
+                                   max="100">
+                            <div class="form-text">
+                                Students with lower percentage than this cannot choose this elective
+                            </div>
+                        </div>
+
+                        <div class="form-group d-none" id="blocked-dept-group">
+                            <label class="form-label"><i class="fas fa-ban me-2" style="color: #10b981;"></i>Blocked Departments (Comma Separated)</label>
+                            <input type="text"
+                                   name="blocked_departments"
+                                   class="form-control"
+                                   placeholder="e.g. CSE, IT, ENTC">
+                            <div class="form-text">
+                                Students from these departments cannot choose this elective
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button type="submit" class="btn-submit">
+                                <i class="fas fa-save me-2"></i>Save Rule
+                            </button>
+                            <a href="{% url 'manage_courses' %}" class="btn-cancel">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const ruleTypeSelect = document.getElementById("id_rule_type");
+        const minGroup = document.getElementById("min-percentage-group");
+        const blockedGroup = document.getElementById("blocked-dept-group");
+
+        function updateVisibility() {
+            if (ruleTypeSelect.value === "MIN_PERCENTAGE") {
+                minGroup.classList.remove("d-none");
+                blockedGroup.classList.add("d-none");
+            } else {
+                minGroup.classList.add("d-none");
+                blockedGroup.classList.remove("d-none");
+            }
+        }
+
+        ruleTypeSelect.addEventListener("change", updateVisibility);
+        updateVisibility();
+    });
+</script>
+{% endblock %}

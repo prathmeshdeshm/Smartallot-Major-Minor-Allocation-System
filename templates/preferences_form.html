@@ -1,0 +1,104 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Submit Preferences{% endblock %}
+
+{% block content %}
+<style>
+    .pref-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 1.25rem; background: #fff; }
+    .pref-list { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 0.75rem; min-height: 120px; }
+    .pref-item { padding: 0.4rem 0.6rem; margin: 0.25rem 0; background: #e2e8f0; border-radius: 6px; font-weight: 500; }
+    .section-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; }
+</style>
+
+<form method="post" id="preference-form">
+    {% csrf_token %}
+    <input type="hidden" name="minor1_order" id="minor1_order" />
+    <input type="hidden" name="oe_order" id="oe_order" />
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="pref-card">
+                <div class="section-title">Minor 1 Preferences</div>
+                <div class="mb-2 text-muted" style="font-size: 0.9rem;">Select in desired order; uncheck to remove.</div>
+                {% for subject in all_minors %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="{{ subject.id }}" id="minor1_{{ subject.id }}" data-label="{{ subject.name }} ({{ subject.code }})" onchange="togglePref('minor1', this)">
+                    <label class="form-check-label" for="minor1_{{ subject.id }}">{{ subject.name }} ({{ subject.code }})</label>
+                </div>
+                {% endfor %}
+                <div class="mt-3">
+                    <div class="text-muted" style="font-size:0.9rem;">Selected order</div>
+                    <div class="pref-list" id="minor1_list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="pref-card">
+                <div class="section-title">Open Elective Preferences</div>
+                <div class="mb-2 text-muted" style="font-size: 0.9rem;">Select in desired order; uncheck to remove.</div>
+                {% for subject in all_oes %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="{{ subject.id }}" id="oe_{{ subject.id }}" data-label="{{ subject.name }} ({{ subject.code }})" onchange="togglePref('oe', this)">
+                    <label class="form-check-label" for="oe_{{ subject.id }}">{{ subject.name }} ({{ subject.code }})</label>
+                </div>
+                {% endfor %}
+                <div class="mt-3">
+                    <div class="text-muted" style="font-size:0.9rem;">Selected order</div>
+                    <div class="pref-list" id="oe_list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-grid mt-4">
+        <button type="submit" class="btn btn-success btn-lg">Submit All Preferences</button>
+    </div>
+</form>
+
+<script>
+    const prefState = {
+        minor1: [],
+        oe: []
+    };
+
+    function togglePref(type, checkbox) {
+        const id = checkbox.value;
+        const label = checkbox.dataset.label;
+        const arr = prefState[type];
+
+        if (checkbox.checked) {
+            if (!arr.includes(id)) {
+                arr.push(id);
+            }
+        } else {
+            const idx = arr.indexOf(id);
+            if (idx !== -1) arr.splice(idx, 1);
+        }
+
+        renderList(type);
+        updateHidden();
+    }
+
+    function renderList(type) {
+        const container = document.getElementById(`${type}_list`);
+        container.innerHTML = '';
+        prefState[type].forEach((id, idx) => {
+            const label = document.querySelector(`#${type}_${id}`).dataset.label;
+            const div = document.createElement('div');
+            div.className = 'pref-item';
+            div.textContent = `${idx + 1}. ${label}`;
+            container.appendChild(div);
+        });
+    }
+
+    function updateHidden() {
+        document.getElementById('minor1_order').value = prefState.minor1.join(',');
+        document.getElementById('oe_order').value = prefState.oe.join(',');
+    }
+
+    document.getElementById('preference-form').addEventListener('submit', function() {
+        updateHidden();
+    });
+</script>
+{% endblock %}

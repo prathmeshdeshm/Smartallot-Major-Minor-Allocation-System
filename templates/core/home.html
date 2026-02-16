@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% block title %}Welcome to SmartAllot{% endblock %}
+
+{% block content %}
+<style>
+    .home-hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 80px 0 60px 0;
+        margin-bottom: 40px;
+        border-radius: 0 0 20px 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    .home-hero::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" fill="rgba(255,255,255,0.08)"><polygon points="1000,100 1000,0 0,100"/></svg>')
+            no-repeat center bottom;
+        background-size: cover;
+    }
+    .hero-inner {
+        position: relative;
+        z-index: 2;
+    }
+    .floating-elements {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        pointer-events: none;
+    }
+    .floating-circle {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.12);
+        animation: float 6s ease-in-out infinite;
+    }
+    .floating-circle:nth-child(1) {
+        width: 70px; height: 70px;
+        top: 20%; left: 10%;
+        animation-delay: 0s;
+    }
+    .floating-circle:nth-child(2) {
+        width: 110px; height: 110px;
+        top: 60%; right: 10%;
+        animation-delay: 2s;
+    }
+    .floating-circle:nth-child(3) {
+        width: 50px; height: 50px;
+        top: 40%; right: 20%;
+        animation-delay: 4s;
+    }
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-18px); }
+    }
+
+    .role-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+    }
+    .role-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 25px 45px rgba(0,0,0,0.15);
+    }
+    .role-card-header {
+        padding: 20px;
+        text-align: center;
+        color: white;
+    }
+    .role-card-header.student {
+        background: linear-gradient(135deg, #4c6fff 0%, #7f53ac 100%);
+    }
+    .role-card-header.admin {
+        background: linear-gradient(135deg, #ff7a18 0%, #af002d 100%);
+    }
+    .role-card-header.recovery {
+        background: linear-gradient(135deg, #20c997 0%, #198754 100%);
+    }
+    .role-card-body {
+        padding: 25px 25px 30px 25px;
+        background: #ffffff;
+    }
+    .role-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px auto;
+        font-size: 2rem;
+        background: rgba(255,255,255,0.15);
+    }
+    .role-card-body p {
+        color: #6c757d;
+        font-size: 0.95rem;
+    }
+
+    .btn-modern {
+        border-radius: 50px;
+        padding: 10px 22px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        transition: all 0.25s ease;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.12);
+        font-size: 0.85rem;
+    }
+    .btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    }
+    .btn-student-primary {
+        background: linear-gradient(135deg, #4c6fff 0%, #7f53ac 100%);
+        color: #fff;
+    }
+    .btn-admin-primary {
+        background: linear-gradient(135deg, #ff7a18 0%, #af002d 100%);
+        color: #fff;
+    }
+    .btn-outline-light-modern {
+        border-radius: 50px;
+        padding: 8px 18px;
+        border: 1px solid rgba(255,255,255,0.7);
+        background: transparent;
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.25s ease;
+    }
+    .btn-outline-light-modern:hover {
+        background: rgba(255,255,255,0.15);
+    }
+    @media (max-width: 768px) {
+        .home-hero {
+            padding: 50px 0 40px 0;
+        }
+        .display-4 {
+            font-size: 2.2rem;
+        }
+    }
+</style>
+
+<div class="home-hero">
+    <div class="floating-elements">
+        <div class="floating-circle"></div>
+        <div class="floating-circle"></div>
+        <div classfloating-circle"></div>
+    </div>
+    <div class="container hero-inner">
+        <div class="row align-items-center">
+            <div class="col-lg-7 text-center text-lg-start">
+                <i class="fas fa-graduation-cap mb-3" style="font-size: 3.5rem; opacity: 0.9;"></i>
+                <h1 class="display-4 fw-bold mb-3">Welcome to SmartAllot</h1>
+                <p class="lead mb-4">
+                    Intelligent, fair and transparent allocation system for Minors and Open Electives.
+                    Choose your role to continue.
+                </p>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'home' %}" class="btn-outline-light-modern me-2 mb-2">
+                        <i class="fas fa-tachometer-alt me-1"></i> Go to Dashboard
+                    </a>
+                    <a href="{% url 'logout' %}" class="btn-outline-light-modern mb-2">
+                        <i class="fas fa-sign-out-alt me-1"></i> Logout
+                    </a>
+                {% else %}
+                    <span class="badge bg-light text-dark px-3 py-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Please login as Student or Admin to proceed.
+                    </span>
+                {% endif %}
+            </div>
+            <div class="col-lg-5 text-center mt-4 mt-lg-0">
+                <i class="fas fa-network-wired" style="font-size: 8rem; opacity: 0.2;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container pb-5">
+    <div class="row g-4">
+        <!-- Student Panel -->
+        <div class="col-md-4">
+            <div class="role-card">
+                <div class="role-card-header student">
+                    <div class="role-icon">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <h4 class="mb-0">Student Portal</h4>
+                </div>
+                <div class="role-card-body">
+                    <p>
+                        Login with your roll number to submit and manage your preferences for Minor 1 and Open Electives,
+                        and view your allocation results.
+                    </p>
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{% url 'student_login' %}" class="btn-modern btn-student-primary">
+                            <i class="fas fa-sign-in-alt me-1"></i> Student Login
+                        </a>
+                        <small class="text-muted text-center mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Students are registered by admin
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div class="col-md-4">
+            <div class="role-card">
+                <div class="role-card-header admin">
+                    <div class="role-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h4 class="mb-0">Admin Panel</h4>
+                </div>
+                <div class="role-card-body">
+                    <p>
+                        Admins can configure branches, capacities, eligibility rules, run allocations,
+                        and monitor overall statistics.
+                    </p>
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{% url 'admin_login' %}" class="btn-modern btn-admin-primary">
+                            <i class="fas fa-key me-1"></i> Admin Login
+                        </a>
+                        <small class="text-muted">
+                            Note: Only authorized faculty/department admins can login here.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password Recovery -->
+        <div class="col-md-4">
+            <div class="role-card">
+                <div class="role-card-header recovery">
+                    <div class="role-icon">
+                        <i class="fas fa-unlock-alt"></i>
+                    </div>
+                    <h4 class="mb-0">Account Recovery</h4>
+                </div>
+                <div class="role-card-body">
+                    <p>
+                        Forgot your password? Use OTP-based email verification to securely reset your password
+                        and regain access to your account.
+                    </p>
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{% url 'forgot_password' %}" class="btn-modern" style="background: #20c997; color:#fff;">
+                            <i class="fas fa-paper-plane me-1"></i> Forgot Password (OTP)
+                        </a>
+                        <small class="text-muted">
+                            An OTP will be sent to your registered email ID. Make sure you have access to it.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

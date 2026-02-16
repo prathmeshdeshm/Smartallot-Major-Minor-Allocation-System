@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .form-text {
+        display: none !important;
+    }
+
+    .auth-wrapper {
+        min-height: calc(100vh - 80px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f3f6ff;
+    }
+
+    .auth-card {
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.10);
+        border: none;
+        background: #ffffff;
+    }
+
+    .auth-header {
+        background: linear-gradient(135deg, #1e769c 0%, #0c607a 100%);
+        color: #fff;
+        padding: 18px 24px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .auth-header h4 {
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+
+    .auth-body {
+        padding: 24px 26px 16px 26px;
+        background: #f9fafb;
+    }
+
+    .auth-footer {
+        padding: 14px 24px 18px 24px;
+        background: #f1f3f5;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+
+    .auth-footer a {
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+
+    .form-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+    }
+
+    .form-text {
+        font-size: 0.8rem;
+        color: #6c6b80;
+    }
+
+    .field-error {
+        font-size: 0.8rem;
+    }
+
+    /* Make inputs look consistent even with default Django widgets */
+    .auth-body input,
+    .auth-body select {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        padding: 6px 10px;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        background-color: #ffffff;
+    }
+
+    .auth-body input:focus,
+    .auth-body select:focus {
+        border-color: #1e619c;
+        box-shadow: 0 0 0 3px rgba(30, 156, 87, 0.18);
+    }
+
+    .btn-register {
+        background-color: #1e7a9c;
+        border-color: #1e749c;
+        border-radius: 999px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding-top: 9px;
+        padding-bottom: 9px;
+    }
+
+    .btn-register:hover {
+        background-color: #184184;
+        border-color: #184e84;
+    }
+
+    /* Tidy password help text list a bit */
+    .auth-body .helptext ul {
+        padding-left: 18px;
+        margin-top: 4px;
+        margin-bottom: 0;
+    }
+
+    .auth-body .helptext li {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+
+    @media (max-width: 768px) {
+        .auth-body {
+            padding: 18px 16px 12px 16px;
+        }
+
+        .auth-header {
+            padding: 14px 16px;
+        }
+    }
+</style>
+
+<div class="auth-wrapper container py-4">
+    <div class="row justify-content-center w-100">
+        <div class="col-lg-7 col-md-9">
+            <div class="card auth-card">
+
+                <!-- Header -->
+                <div class="auth-header">
+                    <i class="fas fa-user-plus"></i>
+                    <div>
+                        <h4 class="mb-0">Student Registration</h4>
+                        <small class="opacity-75">Create your SmartAllot student account</small>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="auth-body">
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <div class="row g-3">
+                            <!-- Username -->
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
+                                {{ form.username }}
+                                {% if form.username.help_text %}
+                                <div class="form-text">{{ form.username.help_text }}</div>
+                                {% endif %}
+                                {% for error in form.username.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.email.id_for_label }}">Email address</label>
+                                {{ form.email }}
+                                {% for error in form.email.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- First & Last name -->
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.first_name.id_for_label }}">First name</label>
+                                {{ form.first_name }}
+                                {% for error in form.first_name.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.last_name.id_for_label }}">Last name</label>
+                                {{ form.last_name }}
+                                {% for error in form.last_name.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Passwords -->
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.password1.id_for_label }}">Password</label>
+                                {{ form.password1 }}
+                                {% if form.password1.help_text %}
+                                <div class="form-text helptext">{{ form.password1.help_text|safe }}</div>
+                                {% endif %}
+                                {% for error in form.password1.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.password2.id_for_label }}">Confirm
+                                    password</label>
+                                {{ form.password2 }}
+                                {% for error in form.password2.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Roll no -->
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.roll_no.id_for_label }}">Roll number</label>
+                                {{ form.roll_no }}
+                                <div class="form-text">Enter your unique roll number.</div>
+                                {% for error in form.roll_no.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Department -->
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.department.id_for_label }}">Department</label>
+                                {{ form.department }}
+                                {% for error in form.department.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Percentage -->
+                            <div class="col-md-6">
+                                <label class="form-label" for="{{ form.percentage.id_for_label }}">Percentage</label>
+                                {{ form.percentage }}
+                                <div class="form-text">Enter your academic percentage (e.g., 85.50).</div>
+                                {% for error in form.percentage.errors %}
+                                <div class="text-danger field-error">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <button class="btn btn-success btn-register w-100" type="submit">
+                                Register as Student
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="auth-footer">
+                    <span>Already have an account?</span>
+                    <a href="{% url 'student_login' %}">Login here</a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

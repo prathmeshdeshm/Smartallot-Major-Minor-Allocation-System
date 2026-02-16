@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Student Results{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-lg">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">
+                <i class="fas fa-file-upload me-2"></i> Import Student Results (Excel)
+            </h2>
+        </div>
+        
+        <div class="card-body">
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Instructions:</strong>
+                <ul>
+                    <li>Upload an Excel file (.xlsx or .xls) with student results</li>
+                    <li>Required columns: <strong>Roll No, Student Name</strong>, and subject marks (DBMS, TOC, SE, DSS, DM, S&T)</li>
+                    <li>Each subject should have: Theory (Th), Internal (Int), and Total columns</li>
+                    <li>The file should also include <strong>Grand Total</strong> and <strong>Result</strong> (PASS/FAIL)</li>
+                    <li>Duplicate roll numbers will be updated (not duplicated)</li>
+                </ul>
+            </div>
+            
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    {{ form.excel_file }}
+                    {% if form.excel_file.help_text %}
+                        <small class="form-text text-muted d-block mt-2">
+                            {{ form.excel_file.help_text|safe }}
+                        </small>
+                    {% endif %}
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-upload me-2"></i> Import Results
+                    </button>
+                    <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_create %}Create{% else %}Edit{% endif %} Student{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <div class="mb-4">
+                <h2>
+                    <i class="fas {% if is_create %}fa-user-plus{% else %}fa-user-edit{% endif %} me-2"></i>
+                    {% if is_create %}Create New Student{% else %}Edit Student: {{ student.name }}{% endif %}
+                </h2>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form method="POST" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Personal Information -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2 mb-3"><i class="fas fa-user-circle me-2"></i>Personal
+                                Information</h5>
+
+                            <div class="mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }} <span
+                                        class="text-danger">*</span></label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                <div class="alert alert-danger mt-2">{{ form.name.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.roll_no.id_for_label }}" class="form-label">{{ form.roll_no.label }}
+                                    <span class="text-danger">*</span></label>
+                                {{ form.roll_no }}
+                                {% if form.roll_no.errors %}
+                                <div class="alert alert-danger mt-2">{{ form.roll_no.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.department.id_for_label }}" class="form-label">{{
+                                            form.department.label }} <span class="text-danger">*</span></label>
+                                        {{ form.department }}
+                                        {% if form.department.errors %}
+                                        <div class="alert alert-danger mt-2">{{ form.department.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.email.id_for_label }}" class="form-label">{{
+                                            form.email.label }} <span class="text-danger">*</span></label>
+                                        {{ form.email }}
+                                        {% if form.email.errors %}
+                                        <div class="alert alert-danger mt-2">{{ form.email.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Academic Details -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2 mb-3"><i class="fas fa-book me-2"></i>Academic Details</h5>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.marks.id_for_label }}" class="form-label">{{
+                                            form.marks.label }} <span class="text-danger">*</span></label>
+                                        {{ form.marks }}
+                                        <small class="text-muted">Grand total marks from Excel import</small>
+                                        {% if form.marks.errors %}
+                                        <div class="alert alert-danger mt-2">{{ form.marks.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="{{ form.academic_status.id_for_label }}" class="form-label">{{
+                                            form.academic_status.label }} <span class="text-danger">*</span></label>
+                                        {{ form.academic_status }}
+                                        {% if form.academic_status.errors %}
+                                        <div class="alert alert-danger mt-2">{{ form.academic_status.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Backlog Information -->
+                        <div class="mb-4">
+                            <h5 class="border-bottom pb-2 mb-3"><i class="fas fa-warning me-2"></i>Backlog Information
+                            </h5>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.has_backlog }}
+                                    <label class="form-check-label" for="{{ form.has_backlog.id_for_label }}">
+                                        {{ form.has_backlog.label }}
+                                    </label>
+                                </div>
+                                {% if form.has_backlog.errors %}
+                                <div class="alert alert-danger mt-2">{{ form.has_backlog.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.backlog_count.id_for_label }}" class="form-label">{{
+                                    form.backlog_count.label }} <span class="text-danger">*</span></label>
+                                {{ form.backlog_count }}
+                                {% if form.backlog_count.errors %}
+                                <div class="alert alert-danger mt-2">{{ form.backlog_count.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{% url 'student_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas {% if is_create %}fa-plus{% else %}fa-save{% endif %} me-2"></i>
+                                {% if is_create %}Create Student{% else %}Update Student{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

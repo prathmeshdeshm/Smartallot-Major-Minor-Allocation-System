@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Student{% endblock %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-lg-6 mx-auto">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Confirm Delete</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-4">
+                        Are you sure you want to delete <strong class="text-danger">{{ student.name }}</strong> ({{ student.roll_no }})?
+                    </p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-warning me-2"></i>
+                        <strong>Warning:</strong> This action cannot be undone. All associated data will be deleted.
+                    </div>
+
+                    <form method="POST" class="d-flex gap-2">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-lg flex-grow-1">
+                            <i class="fas fa-trash me-2"></i>Yes, Delete
+                        </button>
+                        <a href="{% url 'student_detail' student.id %}" class="btn btn-secondary btn-lg flex-grow-1">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

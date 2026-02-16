@@ -1,0 +1,407 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome - SmartAllot{% endblock %}
+
+{% block content %}
+<style>
+    /* Hero Section */
+    .hero-section {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        padding: 100px 0;
+        position: relative;
+        overflow: hidden;
+        min-height: 500px;
+        display: flex;
+        align-items: center;
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 500px;
+        height: 500px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50%;
+    }
+
+    .hero-section::after {
+        content: '';
+        position: absolute;
+        bottom: -25%;
+        left: -5%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 50%;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+    }
+
+    .hero-section h1 {
+        font-size: 3.5rem;
+        font-weight: 800;
+        margin-bottom: 1.5rem;
+        letter-spacing: -0.5px;
+        line-height: 1.1;
+    }
+
+    .hero-section .lead {
+        font-size: 1.25rem;
+        opacity: 0.95;
+        margin-bottom: 2.5rem;
+        line-height: 1.6;
+        max-width: 600px;
+        font-weight: 300;
+    }
+
+    .hero-buttons {
+        gap: 1rem;
+    }
+
+    .hero-buttons .btn {
+        padding: 12px 32px;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .hero-buttons .btn-light {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .hero-buttons .btn-light:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .hero-buttons .btn-outline-light:hover {
+        background: white;
+        color: #2563eb;
+    }
+
+    /* Stats Section */
+    .stats-section {
+        padding: 80px 0;
+        background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .stats-section h2 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 3rem;
+        color: #1e293b;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+        border-color: #2563eb;
+    }
+
+    .stat-number {
+        font-size: 2.8rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-card h5 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-card p {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    /* Features Section */
+    .features-section {
+        padding: 80px 0;
+    }
+
+    .features-section h2 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        color: #1e293b;
+        text-align: center;
+    }
+
+    .features-section .section-subtitle {
+        text-align: center;
+        color: #64748b;
+        font-size: 1.1rem;
+        margin-bottom: 4rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .feature-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 40px 30px;
+        text-align: center;
+        transition: all 0.3s ease;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+        transform-origin: left;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+        border-color: #2563eb;
+    }
+
+    .feature-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .icon-wrapper {
+        width: 80px;
+        height: 80px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 25px;
+        font-size: 2rem;
+        background: linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%);
+        color: #2563eb;
+        transition: all 0.3s ease;
+    }
+
+    .feature-card:hover .icon-wrapper {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .feature-card h5 {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 1rem;
+    }
+
+    .feature-card p {
+        color: #64748b;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .hero-section {
+            padding: 60px 0;
+            min-height: auto;
+        }
+
+        .hero-section h1 {
+            font-size: 2.5rem;
+        }
+
+        .hero-section .lead {
+            font-size: 1.1rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+        }
+
+        .features-section h2,
+        .stats-section h2 {
+            font-size: 2rem;
+        }
+
+        .hero-buttons {
+            flex-direction: column;
+        }
+
+        .hero-buttons .btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<!-- HERO SECTION -->
+<div class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <div class="hero-content">
+                    <h1 class="fw-bold">SmartAllot</h1>
+                    <p class="lead">The intelligent, automated system for seamless Minor and Open Elective allocation. Experience fair, transparent, and efficient course distribution powered by advanced algorithms.</p>
+                    
+                    {% if user.is_authenticated %}
+                        <div class="d-flex flex-column flex-sm-row hero-buttons">
+                            <a class="btn btn-light" href="{% url 'admin_dashboard' %}" role="button">
+                                <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="d-flex flex-column flex-sm-row hero-buttons">
+                            <a class="btn btn-light" href="{% url 'student_login' %}" role="button">
+                                <i class="fas fa-user-graduate me-2"></i>Student Login
+                            </a>
+                            <a class="btn btn-outline-light" href="{% url 'admin_login' %}" role="button">
+                                <i class="fas fa-user-shield me-2"></i>Admin Login
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-5 d-none d-lg-flex justify-content-end">
+                <i class="fas fa-graduation-cap" style="font-size: 300px; opacity: 0.08; margin-right: -50px;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STATS SECTION -->
+<div class="stats-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Why SmartAllot Stands Out</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <span class="stat-number">100%</span>
+                    <h5>Automated</h5>
+                    <p>Fully automated allocation process with zero manual intervention</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <span class="stat-number">Fair</span>
+                    <h5>Merit-Based</h5>
+                    <p>Transparent ranking system prioritizing academic performance</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <span class="stat-number">Real-Time</span>
+                    <h5>Analytics</h5>
+                    <p>Comprehensive dashboards tracking all allocations instantly</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <span class="stat-number">24/7</span>
+                    <h5>Available</h5>
+                    <p>Access preferences and results anytime, anywhere online</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FEATURES SECTION -->
+<div class="features-section">
+    <div class="container">
+        <h2 class="fw-bold">Powerful Features</h2>
+        <p class="section-subtitle">Everything you need for seamless, efficient, and fair course allocation</p>
+        
+        <div class="row g-4">
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h5>Smart Algorithm</h5>
+                    <p>Advanced intelligent allocation engine that optimizes preferences while respecting capacity constraints and eligibility rules.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h5>Detailed Analytics</h5>
+                    <p>Real-time dashboards and comprehensive reports providing insights into allocation patterns, trends, and statistics.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h5>Eligibility Rules</h5>
+                    <p>Flexible, configurable rules engine supporting complex eligibility constraints for minors and open electives.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h5>Responsive Design</h5>
+                    <p>Fully responsive interface works seamlessly on desktop, tablet, and mobile devices with intuitive navigation.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h5>Secure & Audited</h5>
+                    <p>Complete audit trails, validation logs, and secure authentication ensuring transparency and accountability.</p>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <div class="feature-card">
+                    <div class="icon-wrapper">
+                        <i class="fas fa-file-excel"></i>
+                    </div>
+                    <h5>Export & Reports</h5>
+                    <p>Generate professional reports and export data to Excel for further analysis and administrative records.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

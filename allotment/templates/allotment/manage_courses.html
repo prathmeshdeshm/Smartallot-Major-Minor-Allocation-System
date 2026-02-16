@@ -1,0 +1,489 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Page Header - Design System */
+    .page-header {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+    }
+
+    .page-header h1 {
+        font-family: 'Poppins', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    /* Course Cards - Design System */
+    .course-card {
+        border: none;
+        border-radius: 0.75rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+
+    .course-card:hover {
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+        transform: translateY(-4px);
+    }
+
+    .course-card .card-header {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        border: none;
+        padding: 1.25rem;
+        font-weight: 600;
+    }
+
+    .course-card .card-header.bg-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    }
+
+    /* Tables - Design System */
+    .table-modern {
+        border-radius: 0.75rem;
+        overflow: hidden;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-modern thead th {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: white;
+        border: none;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.8rem;
+        padding: 1rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .table-modern tbody tr {
+        border-bottom: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+
+    .table-modern tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #f0f9ff;
+    }
+
+    .table-modern tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    /* Badges - Design System */
+    .rule-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 0.35rem 0.85rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin: 0.125rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .rule-badge.warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+    }
+
+    .capacity-badge {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 9999px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Buttons - Design System */
+    .btn-modern {
+        border-radius: 0.5rem;
+        padding: 0.5rem 1.25rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        font-size: 0.85rem;
+        font-family: 'Inter', sans-serif;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+
+    .btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .btn-outline-primary.btn-modern {
+        color: #2563eb;
+        border: 2px solid #2563eb;
+    }
+
+    .btn-outline-primary.btn-modern:hover {
+        background-color: #2563eb;
+        color: white;
+    }
+
+    .btn-outline-success.btn-modern {
+        color: #10b981;
+        border: 2px solid #10b981;
+    }
+
+    .btn-outline-success.btn-modern:hover {
+        background-color: #10b981;
+        color: white;
+    }
+
+    /* Rule Items - Design System */
+    .no-rules {
+        color: #64748b;
+        font-style: italic;
+        font-size: 0.9rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .rule-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: #f0f9ff;
+        border-left: 4px solid #2563eb;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+        transition: all 0.3s ease;
+    }
+
+    .rule-item:hover {
+        background: #e0f2fe;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+    }
+
+    .rule-content {
+        flex-grow: 1;
+    }
+
+    .rule-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-left: 0.75rem;
+    }
+
+    .btn-rule-delete {
+        background: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 0.375rem;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .btn-rule-delete:hover {
+        background: #dc2626;
+        transform: scale(1.05);
+    }
+
+    /* Avatar Circle - Design System */
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+        color: white;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .page-header {
+            padding: 2rem 0;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .btn-modern {
+            width: 100%;
+        }
+
+        .table-modern {
+            font-size: 0.85rem;
+        }
+
+        .table-modern tbody td {
+            padding: 0.75rem 0.5rem;
+        }
+    }
+</style>
+
+<div class="page-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-5 fw-bold mb-2">Manage Courses & Rules</h1>
+                <p class="lead mb-0">Configure minor branches, open electives, and their eligibility criteria</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <a href="{% url 'course_create' %}" class="btn btn-light btn-modern">
+                    <i class="fas fa-plus me-2"></i>Add New Course
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Minor Branches Section -->
+    <div class="card course-card">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>Minor Branches</h4>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-modern mb-0">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-building me-2"></i>Branch Name</th>
+                            <th><i class="fas fa-users me-2"></i>Capacity</th>
+                            <th><i class="fas fa-university me-2"></i>Offering Dept</th>
+                            <th><i class="fas fa-ban me-2"></i>Restricted Dept</th>
+                            <th><i class="fas fa-shield-alt me-2"></i>Eligibility Rules</th>
+                            <th><i class="fas fa-tools me-2"></i>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for branch in minor_branches %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-circle bg-primary text-white me-3">
+                                        {{ branch.name|first|upper }}
+                                    </div>
+                                    <div>
+                                        <strong>{{ branch.name }}</strong>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="capacity-badge">{{ branch.capacity }} seats</span>
+                            </td>
+                            <td>
+                                {% if branch.offering_dept %}
+                                <span class="badge bg-info text-white">{{ branch.offering_dept }}</span>
+                                {% else %}
+                                <span class="text-muted text-warning fw-bold">⚠️ Not Set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if branch.restricted_dept %}
+                                <span class="badge bg-warning text-dark">{{ branch.restricted_dept }}</span>
+                                {% else %}
+                                <span class="text-muted">None</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="rules-container">
+                                    {% for rule in branch.rules.all %}
+                                    {% if rule.is_active %}
+                                    <div class="rule-item">
+                                        <div class="rule-content">
+                                            <span class="rule-badge {% if not rule.is_active %}warning{% endif %}">
+                                                {% if rule.is_active %}
+                                                🟢
+                                                {% else %}
+                                                🔴
+                                                {% endif %}
+
+                                                {% if rule.rule_type == 'MIN_PERCENTAGE' %}
+                                                Min % {{ rule.value.min_percentage }}
+                                                {% elif rule.rule_type == 'DEPARTMENT_BLOCK' %}
+                                                Blocked: {{ rule.value.blocked_departments|join:", " }}
+                                                {% else %}
+                                                {{ rule.get_rule_type_display }}
+                                                {% endif %}
+                                                ({{ rule.is_active|yesno:"Active,Inactive" }})
+                                            </span>
+                                        </div>
+                                        <div class="rule-actions">
+                                            <span class="badge bg-info"
+                                                style="font-size: 0.8rem; white-space: nowrap;">🔒 Protected</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% empty %}
+
+                                    <span class="no-rules">No active rules</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{% url 'course_update' 'minor' branch.pk %}"
+                                        class="btn btn-secondary btn-modern">
+                                        <i class="fas fa-edit me-1"></i>Edit
+                                    </a>
+                                    <a href="{% url 'course_delete' 'minor' branch.pk %}"
+                                        class="btn btn-danger btn-modern">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <i class="fas fa-graduation-cap fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No minor branches found.</p>
+                                <a href="{% url 'course_create' %}" class="btn btn-primary btn-modern">
+                                    <i class="fas fa-plus me-2"></i>Add First Branch
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Open Electives Section -->
+    <div class="card course-card">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0"><i class="fas fa-book me-2"></i>Open Electives</h4>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-modern mb-0">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-book me-2"></i>Subject Name</th>
+                            <th><i class="fas fa-users me-2"></i>Capacity</th>
+                            <th><i class="fas fa-university me-2"></i>Offering Dept</th>
+                            <th><i class="fas fa-cogs me-2"></i>Eligibility Rules</th>
+                            <th><i class="fas fa-tools me-2"></i>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for oe in open_electives %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-circle bg-success text-white me-3">
+                                        {{ oe.name|first|upper }}
+                                    </div>
+                                    <div>
+                                        <strong>{{ oe.name }}</strong>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="capacity-badge">{{ oe.capacity }} seats</span>
+                            </td>
+                            <td>
+                                {% if oe.offering_dept %}
+                                <span class="badge bg-info text-white">{{ oe.offering_dept }}</span>
+                                {% else %}
+                                <span class="text-muted text-warning fw-bold">⚠️ Not Set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="rules-container">
+                                    {% for rule in oe.rules.all %}
+                                    {% if rule.is_active %}
+                                    <div class="rule-item">
+                                        <div class="rule-content">
+                                            <span class="rule-badge {% if not rule.is_active %}warning{% endif %}">
+                                                {% if rule.rule_type == 'MIN_PERCENTAGE' %}
+                                                Min % {{ rule.value.min_percentage }}
+                                                {% elif rule.rule_type == 'DEPARTMENT_BLOCK' %}
+                                                Blocked: {{ rule.value.blocked_departments|join:", " }}
+                                                {% endif %}
+                                                {% if not rule.is_active %} (inactive){% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="rule-actions">
+                                            <span class="badge bg-info"
+                                                style="font-size: 0.8rem; white-space: nowrap;">🔒 Protected</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% empty %}
+                                    <span class="no-rules">No active rules</span>
+                                    {% endfor %}
+                                </div>
+
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <a href="{% url 'course_update' 'oe' oe.pk %}" class="btn btn-secondary btn-modern">
+                                        <i class="fas fa-edit me-1"></i>Edit
+                                    </a>
+                                    <a href="{% url 'course_delete' 'oe' oe.pk %}" class="btn btn-danger btn-modern">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <i class="fas fa-book fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No open electives found.</p>
+                                <a href="{% url 'course_create' %}" class="btn btn-success btn-modern">
+                                    <i class="fas fa-plus me-2"></i>Add First Elective
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <style>
+        .avatar-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+    </style>
+    {% endblock %}

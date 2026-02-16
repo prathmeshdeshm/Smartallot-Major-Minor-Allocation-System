@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Reject Reassessment - SmartAllot Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
+                                <i class="bi bi-x-circle text-danger" style="font-size: 1.5rem;"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h1 class="mb-0" style="font-size: 1.75rem; font-weight: 600;">Reject Reassessment</h1>
+                            <p class="text-muted mb-0">Mark reassessment as failed</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Information -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white p-4 border-bottom">
+                    <h5 class="mb-0" style="font-weight: 600;">Student Details</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small" style="font-weight: 500;">Name</label>
+                            <div class="p-3 bg-light rounded-3">
+                                <p class="mb-0"><strong>{{ reassessment.student.user.first_name }} {{ reassessment.student.user.last_name }}</strong></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small" style="font-weight: 500;">Roll Number</label>
+                            <div class="p-3 bg-light rounded-3">
+                                <p class="mb-0"><strong>{{ reassessment.student.roll_number }}</strong></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small" style="font-weight: 500;">Department</label>
+                            <div class="p-3 bg-light rounded-3">
+                                <p class="mb-0"><strong>{{ reassessment.student.department }}</strong></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted small" style="font-weight: 500;">Email</label>
+                            <div class="p-3 bg-light rounded-3">
+                                <p class="mb-0"><strong>{{ reassessment.student.user.email }}</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reassessment Details -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white p-4 border-bottom">
+                    <h5 class="mb-0" style="font-weight: 600;">Reassessment Details</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small" style="font-weight: 500;">Submitted On</label>
+                        <div class="p-3 bg-light rounded-3">
+                            <p class="mb-0"><strong>{{ reassessment.submitted_at|date:"M d, Y H:i" }}</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small" style="font-weight: 500;">Subjects Reassessed</label>
+                        <div class="p-3 bg-light rounded-3 border-start border-4 border-warning">
+                            <p class="mb-0 text-muted">{{ reassessment.subjects }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rejection Form -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white p-4 border-bottom">
+                    <h5 class="mb-0" style="font-weight: 600;">Rejection Reason</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Remarks -->
+                        <div class="mb-4">
+                            <label for="remarks" class="form-label" style="font-weight: 600;">Reason for Rejection</label>
+                            <small class="text-muted d-block mb-2">Provide feedback to the student</small>
+                            <textarea 
+                                class="form-control rounded-3" 
+                                id="remarks" 
+                                name="remarks" 
+                                rows="5" 
+                                placeholder="e.g., Student needs to improve on fundamental concepts. Please focus on..."
+                                required
+                                style="border-color: #e0e0e0; resize: vertical;">
+                            </textarea>
+                        </div>
+
+                        <!-- Warning Alert -->
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <strong>Rejection Effect:</strong> Once rejected:
+                            <ul class="mb-0 mt-2">
+                                <li>Student will remain ineligible for allocation</li>
+                                <li>Student academic status will be marked as "FAILED_REASSESSMENT"</li>
+                                <li>Student may resubmit if eligible</li>
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-3 mt-5">
+                            <button type="submit" class="btn btn-danger btn-lg flex-grow-1 rounded-3" style="font-weight: 600;">
+                                <i class="bi bi-x-circle me-2"></i>Reject Reassessment
+                            </button>
+                            <a href="{% url 'manage_reassessments' %}" class="btn btn-outline-secondary btn-lg rounded-3" style="font-weight: 600;">
+                                <i class="bi bi-arrow-left me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    textarea.form-control {
+        font-family: 'Inter', sans-serif;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    textarea.form-control:focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.1);
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        transition: all 0.3s;
+    }
+
+    .btn-danger:hover {
+        background-color: #bb2d3b;
+        border-color: #bb2d3b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    }
+
+    .alert-warning {
+        border-left: 4px solid #ffc107;
+        background-color: rgba(255, 193, 7, 0.05);
+    }
+
+    .alert ul {
+        padding-left: 1.25rem;
+    }
+
+    .alert ul li {
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}

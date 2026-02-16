@@ -1,0 +1,511 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Merit List & Allocation Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .merit-dashboard {
+        background-color: #f8f9fa;
+        padding: 2rem 0;
+    }
+
+    .stats-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #007bff;
+    }
+
+    .stats-card.success {
+        border-left-color: #28a745;
+    }
+
+    .stats-card.warning {
+        border-left-color: #ffc107;
+    }
+
+    .stats-card.danger {
+        border-left-color: #dc3545;
+    }
+
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #007bff;
+        margin: 0;
+    }
+
+    .stats-card.success .stats-number {
+        color: #28a745;
+    }
+
+    .stats-card.warning .stats-number {
+        color: #ffc107;
+    }
+
+    .stats-card.danger .stats-number {
+        color: #dc3545;
+    }
+
+    .stats-card.info {
+        border-left-color: #17a2b8;
+    }
+
+    .stats-card.info .stats-number {
+        color: #17a2b8;
+    }
+
+    .status-badge.info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .stats-label {
+        color: #6c757d;
+        font-size: 0.95rem;
+        margin-top: 0.5rem;
+    }
+
+    .merit-table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .merit-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
+
+    .merit-table thead {
+        background-color: #343a40;
+        color: white;
+    }
+
+    .merit-table thead th {
+        padding: 1.25rem;
+        font-weight: 600;
+        border: none;
+        text-align: left;
+        font-size: 0.95rem;
+        letter-spacing: 0.5px;
+    }
+
+    .merit-table tbody tr {
+        border-bottom: 1px solid #dee2e6;
+        transition: background-color 0.2s ease;
+    }
+
+    .merit-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .merit-table tbody td {
+        padding: 1rem 1.25rem;
+        vertical-align: middle;
+        font-size: 0.95rem;
+    }
+
+    .merit-rank {
+        font-weight: 600;
+        color: #495057;
+        font-size: 1.1rem;
+        text-align: center;
+        width: 70px;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.5rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-align: center;
+        min-width: 120px;
+    }
+
+    .status-badge.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .status-badge.warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+    }
+
+    .status-badge.danger {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .preference-badge {
+        background-color: #e7f3ff;
+        color: #0056b3;
+        padding: 0.35rem 0.6rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .preference-dash {
+        color: #adb5bd;
+        font-weight: 500;
+    }
+
+    .marks-highlight {
+        font-weight: 600;
+        color: #007bff;
+        font-size: 1.05rem;
+    }
+
+    .filter-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-section label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+
+    .btn-filter {
+        padding: 0.5rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 600;
+        border: none;
+        transition: all 0.2s ease;
+    }
+
+    .btn-filter.active {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-filter:not(.active) {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+
+    .btn-filter:not(.active):hover {
+        background-color: #dee2e6;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 8px;
+    }
+
+    .page-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+
+    .page-header p {
+        margin: 0.5rem 0 0 0;
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        color: #6c757d;
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    .table-scroll {
+        overflow-x: auto;
+    }
+
+    @media (max-width: 768px) {
+        .merit-table {
+            font-size: 0.85rem;
+        }
+
+        .merit-table thead th,
+        .merit-table tbody td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .page-header h1 {
+            font-size: 1.75rem;
+        }
+
+        .stats-number {
+            font-size: 2rem;
+        }
+    }
+
+    .preference-list {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .preference-list-item {
+        padding: 0.25rem 0;
+    }
+
+    .preference-highlight {
+        background-color: #fff3cd;
+        padding: 2px 4px;
+        border-radius: 2px;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid merit-dashboard">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>📊 Merit List & Allocation Report</h1>
+        <p>Transparent view of student rankings and allocation decisions</p>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <label>Allocation Type</label>
+        <div class="mt-2">
+            <a href="?type=minor" class="btn btn-filter {% if allocation_type == 'minor' %}active{% endif %}">
+                🎓 Minor Allocation
+            </a>
+            <a href="?type=oe" class="btn btn-filter {% if allocation_type == 'oe' %}active{% endif %}">
+                ⭐ Open Elective Allocation
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <p class="stats-number">{{ total_students }}</p>
+                <p class="stats-label">Total Validated Students</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card success">
+                <p class="stats-number">{{ total_allocated }}</p>
+                <p class="stats-label">Successfully Allocated</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card warning">
+                <p class="stats-number">{{ total_waitlisted }}</p>
+                <p class="stats-label">Waitlisted</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card danger">
+                <p class="stats-number">{{ total_not_allocated }}</p>
+                <p class="stats-label">Not Allocated</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Allocation Percentage -->
+    {% if total_students > 0 %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div
+                style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 style="margin: 0; color: #495057;">Overall Allocation Success Rate</h5>
+                        <p style="margin: 0.5rem 0 0 0; color: #6c757d;">{{ total_allocated }} of {{ total_students }}
+                            students allocated</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h3 style="margin: 0; color: #28a745; font-weight: bold;">{{ allocation_percentage }}%</h3>
+                    </div>
+                </div>
+                <div
+                    style="background-color: #e9ecef; height: 8px; border-radius: 4px; margin-top: 1rem; overflow: hidden;">
+                    <div
+                        style="background-color: #28a745; height: 100%; width: {{ allocation_percentage }}%; transition: width 0.3s ease;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Merit List Table -->
+    <div class="merit-table-container">
+        {% if merit_list %}
+        <div class="table-scroll">
+            <table class="merit-table">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">Rank</th>
+                        <th>Roll No</th>
+                        <th>Name</th>
+                        <th>Main Branch</th>
+                        <th style="text-align: center;">Grand Total Marks</th>
+                        <th>Allocated {% if allocation_type == 'minor' %}Branch{% else %}OE Subject{% endif %}</th>
+                        <th style="text-align: center;">Preference Used</th>
+                        <th>Allocation Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in merit_list %}
+                    <tr>
+                        <!-- Rank -->
+                        <td class="merit-rank">{{ entry.rank }}</td>
+
+                        <!-- Roll No -->
+                        <td>
+                            <strong>{{ entry.roll_no }}</strong>
+                        </td>
+
+                        <!-- Name -->
+                        <td>
+                            {{ entry.name }}
+                            {% if entry.is_absconding %}
+                            <span
+                                style="background-color: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 6px;">ABSCONDING</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Main Branch -->
+                        <td>
+                            <span
+                                style="background-color: #e7f3ff; color: #0056b3; padding: 0.35rem 0.6rem; border-radius: 4px; font-weight: 600;">
+                                {{ entry.main_branch }}
+                            </span>
+                        </td>
+
+                        <!-- Grand Total Marks -->
+                        <td style="text-align: center;">
+                            <span class="marks-highlight">{{ entry.grand_total }}</span>
+                        </td>
+
+                        <!-- Allocated Branch/Subject -->
+                        <td>
+                            {% if entry.allocated_branch %}
+                            <span
+                                style="background-color: #d4edda; color: #155724; padding: 0.35rem 0.6rem; border-radius: 4px; font-weight: 600;">
+                                {{ entry.allocated_branch }}
+                            </span>
+                            {% else %}
+                            <span class="preference-dash">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Preference Used -->
+                        <td style="text-align: center;">
+                            {% if entry.preference_used %}
+                            <span class="preference-badge">Pref #{{ entry.preference_used }}</span>
+                            {% else %}
+                            <span class="preference-dash">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Allocation Status -->
+                        <td>
+                            <span class="status-badge {{ entry.status_color }}">
+                                {% if entry.status == 'ALLOCATED' %}
+                                ✓ ALLOCATED
+                                {% elif entry.status == 'AUTO_ALLOCATED' %}
+                                🔄 AUTO-ALLOCATED
+                                {% elif entry.status == 'WAITLISTED' %}
+                                ⏳ WAITLISTED
+                                {% else %}
+                                ✗ NOT ALLOCATED
+                                {% endif %}
+                            </span>
+                        </td>
+                    </tr>
+
+                    <!-- Preferences Row (Details) -->
+                    <tr style="background-color: #f8f9fa; display: none;" class="preferences-detail-{{ entry.rank }}">
+                        <td colspan="8">
+                            <div style="padding: 1rem;">
+                                <strong style="color: #495057;">Student Preferences:</strong>
+                                <div class="preference-list mt-2">
+                                    {% if entry.preferences %}
+                                    {% for pref in entry.preferences %}
+                                    <div class="preference-list-item">
+                                        Preference #{{ pref.priority }}:
+                                        {% if allocation_type == 'minor' %}
+                                        {{ pref.minor_branch.name }}
+                                        {% else %}
+                                        {{ pref.oe_subject.name }}
+                                        {% endif %}
+                                        {% if pref.priority == entry.preference_used %}
+                                        <span class="preference-highlight">✓ ALLOCATED</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                    {% else %}
+                                    <div class="preference-list-item">No preferences submitted</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h4>No Data Available</h4>
+            <p>No validated students found. Please ensure students are validated before running allocation.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer Info -->
+    <div
+        style="background: white; padding: 1.5rem; border-radius: 8px; margin-top: 2rem; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <p style="margin: 0; color: #6c757d; font-size: 0.9rem;">
+            <strong>ℹ️ Report Information:</strong>
+        </p>
+        <ul style="margin: 1rem 0 0 0; padding-left: 1.5rem; color: #6c757d; font-size: 0.9rem;">
+            <li>Students are ranked by: <strong>Grand Total Marks (DESC)</strong> → <strong>Submission Timestamp
+                    (ASC)</strong> → <strong>Roll Number (ASC)</strong></li>
+            <li>This ranking matches the allocation engine's deterministic sorting order</li>
+            <li><strong>Allocated Preference No</strong> indicates which preference (1st, 2nd, 3rd, etc.) was allocated
+            </li>
+            <li><strong>Waitlisted</strong> students are in queue for future availability</li>
+            <li>This view is <strong>READ-ONLY</strong> and does not modify any allocation data</li>
+            <li>Last updated: <strong>{{ "now"|date:"Y-m-d H:i:s" }}</strong></li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    // Optional: Add row expansion for preferences (future enhancement)
+    document.addEventListener('DOMContentLoaded', function () {
+        const rows = document.querySelectorAll('.merit-table tbody tr:not(.preferences-detail-1)');
+        rows.forEach(row => {
+            // Can add click handlers for row expansion here if needed
+        });
+    });
+</script>
+{% endblock %}

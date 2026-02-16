@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .form-header {
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+    }
+
+    .form-header h1 {
+        font-family: 'Poppins', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    .form-card {
+        border: none;
+        border-radius: 0.75rem;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .form-body {
+        padding: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+    }
+
+    .form-control,
+    .form-select {
+        border: 2px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        background: white;
+        outline: none;
+    }
+
+    .form-text {
+        font-size: 0.85rem;
+        color: #64748b;
+        margin-top: 0.5rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .btn-submit {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn-cancel {
+        background: #64748b;
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        text-decoration: none;
+        display: inline-block;
+        margin-left: 0.5rem;
+    }
+
+    .btn-cancel:hover {
+        background: #475569;
+        transform: translateY(-2px);
+    }
+
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 2rem;
+    }
+
+    @media (max-width: 768px) {
+        .form-header {
+            padding: 2rem 0;
+        }
+
+        .form-body {
+            padding: 1.5rem;
+        }
+
+        .button-group {
+            flex-direction: column;
+        }
+
+        .btn-submit,
+        .btn-cancel {
+            width: 100%;
+            margin-left: 0;
+        }
+    }
+</style>
+
+<div class="form-header">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <h1 class="display-5 fw-bold mb-2">
+                    {% if rule %}Edit{% else %}Add New{% endif %} Rule
+                </h1>
+                <p class="lead mb-0">Configure eligibility criteria for {{ branch.name }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card form-card">
+                <div class="form-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-shield-alt me-2" style="color: #2563eb;"></i>Rule Type</label>
+                            <select name="rule_type" class="form-select" required>
+                                <option value="MIN_PERCENTAGE" {% if rule and rule.rule_type == 'MIN_PERCENTAGE' %}selected{% endif %}>
+                                    Minimum Percentage
+                                </option>
+                                <option value="DEPARTMENT_BLOCK" {% if rule and rule.rule_type == 'DEPARTMENT_BLOCK' %}selected{% endif %}>
+                                    Blocked Departments
+                                </option>
+                            </select>
+                            <div class="form-text">Choose the type of eligibility rule</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-info-circle me-2" style="color: #2563eb;"></i>Value</label>
+                            <input type="text" name="value" class="form-control" required
+                                   value="{{ current_value|default_if_none:'' }}"
+                                   placeholder="75 for % or CSE, IT, ECE for departments">
+                            <div class="form-text">Enter percentage (e.g., 75) or department codes (comma-separated)</div>
+                        </div>
+
+                        <div class="button-group">
+                            <button type="submit" class="btn-submit">
+                                <i class="fas fa-save me-2"></i>{% if rule %}Save Changes{% else %}Add Rule{% endif %}
+                            </button>
+                            <a href="{% url 'manage_courses' %}" class="btn-cancel">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Allocation Control Panel</h1>
+<hr>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header"><h4>Run Allocation Process</h4></div>
+            <div class="card-body">
+                <div class="d-flex justify-content-around">
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="run">
+                        <input type="hidden" name="subject_type" value="Minor">
+                        <button type="submit" class="btn btn-lg btn-primary" onclick="return confirm('Are you sure you want to run the MINOR allocation? This cannot be undone without a reset.')">
+                            Run Minor Allocation
+                        </button>
+                    </form>
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="run">
+                        <input type="hidden" name="subject_type" value="OE">
+                        <button type="submit" class="btn btn-lg btn-success" onclick="return confirm('Are you sure you want to run the OPEN ELECTIVE allocation? This cannot be undone without a reset.')">
+                            Run Open Elective Allocation
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h4>Reset Allocations (DANGER ZONE)</h4></div>
+            <div class="card-body">
+                <div class="d-flex justify-content-around">
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reset">
+                        <input type="hidden" name="subject_type" value="Minor">
+                        <button type="submit" class="btn btn-lg btn-warning" onclick="return confirm('WARNING: This will delete all MINOR allocations and reset seat counts. Are you absolutely sure?')">
+                            Reset Minor Allocations
+                        </button>
+                    </form>
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reset">
+                        <input type="hidden" name="subject_type" value="OE">
+                        <button type="submit" class="btn btn-lg btn-warning" onclick="return confirm('WARNING: This will delete all OPEN ELECTIVE allocations and reset seat counts. Are you absolutely sure?')">
+                            Reset Open Elective Allocations
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header"><h4>Statistics</h4></div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">Total Registered Students: <strong>{{ student_count }}</strong></li>
+                <li class="list-group-item">Minor Allocations Made: <strong>{{ minor_allocations }}</strong></li>
+                <li class="list-group-item">OE Allocations Made: <strong>{{ oe_allocations }}</strong></li>
+            </ul>
+        </div>
+        <div class="card">
+            <div class="card-header"><h4>Reports</h4></div>
+            <div class="card-body">
+                <a href="{% url 'download_report' %}" class="btn btn-info w-100">Download Full Allocation Report (CSV)</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

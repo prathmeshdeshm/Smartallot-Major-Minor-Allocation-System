@@ -1,0 +1,772 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    body {
+        background: #f4f6fb;
+    }
+
+    .admin-header {
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 24px 0;
+        margin-bottom: 24px;
+    }
+
+    .admin-title {
+        font-weight: 600;
+        font-size: 1.6rem;
+        color: #1f2937;
+    }
+
+    .admin-subtitle {
+        font-size: 0.9rem;
+        color: #6b7280;
+    }
+
+    .admin-header-chip {
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        background: #e5f0ff;
+        color: #1d4ed8;
+        font-weight: 500;
+    }
+
+    .admin-header-status {
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        background: #ecfdf3;
+        color: #15803d;
+        font-weight: 500;
+    }
+
+    /* Stats */
+    .stats-card {
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+        margin-bottom: 16px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .stats-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        margin-bottom: 4px;
+    }
+
+    .stats-label {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+
+    .stats-value {
+        font-weight: 600;
+        font-size: 1.3rem;
+        color: #111827;
+    }
+
+    /* Generic section cards */
+    .section-card {
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+        margin-bottom: 20px;
+    }
+
+    .section-card-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .section-card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .section-card-body {
+        padding: 18px;
+    }
+
+    .section-muted {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+
+    /* Allocation buttons */
+    .btn-allocation {
+        border-radius: 999px;
+        padding: 9px 18px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        letter-spacing: 0.02em;
+        border: none;
+        margin: 4px 6px;
+    }
+
+    /* Management buttons */
+    .btn-management {
+        border-radius: 10px;
+        padding: 9px 14px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    /* Table styles */
+    .table-wrapper {
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    }
+
+    .table-modern {
+        margin-bottom: 0;
+    }
+
+    .table-modern thead th {
+        background: #f3f4f6;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-bottom: 1px solid #e5e7eb;
+        color: #4b5563;
+    }
+
+    .table-modern tbody tr:nth-child(even) {
+        background-color: #fafbff;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #eef2ff;
+    }
+
+    .preference-badge {
+        display: inline-block;
+        background: #eef2ff;
+        color: #374151;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin: 2px;
+        border: 1px solid #c7d2fe;
+    }
+
+    .no-preferences {
+        color: #9ca3af;
+        font-style: italic;
+        font-size: 0.85rem;
+    }
+
+    .submitted-time {
+        font-size: 0.7rem;
+        color: #6b7280;
+        margin-top: 3px;
+        display: block;
+    }
+
+    .avatar-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .progress {
+        border-radius: 999px;
+        overflow: hidden;
+        background-color: #e5e7eb;
+    }
+
+    .progress-bar {
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    /* Table toolbar */
+    .table-toolbar {
+        padding: 10px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        background: #fafafa;
+    }
+
+    .toolbar-search {
+        max-width: 260px;
+    }
+
+    .form-control-sm {
+        font-size: 0.8rem;
+    }
+
+    @media (max-width: 768px) {
+        .admin-header {
+            padding: 18px 0;
+        }
+
+        .btn-allocation {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="admin-header">
+    <div class="container">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <div class="admin-title">Admin Dashboard</div>
+                <div class="admin-subtitle">
+                    Oversee student preferences, run allocation, and manage courses.
+                </div>
+            </div>
+            <div class="d-flex flex-column align-items-md-end gap-1">
+                <span class="admin-header-chip">
+                    <i class="fas fa-user-shield me-1"></i> System Administrator
+                </span>
+                <span class="admin-header-status mb-1">
+                    <i class="fas fa-circle me-1" style="font-size: 0.5rem;"></i> All systems operational
+                </span>
+                <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i> Logout
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Messages are handled by base.html, no need to duplicate here -->
+
+    <!-- Quick stats -->
+    <div class="row mb-3">
+        <div class="col-md-3 col-6">
+            <div class="card stats-card">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stats-label">Total Students</div>
+                        <div class="stats-value">{{ total_students }}</div>
+                    </div>
+                    <div class="stats-icon bg-primary-subtle text-primary-emphasis">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-6">
+            <div class="card stats-card">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stats-label">Minor 1 Allocated</div>
+                        <div class="stats-value">{{ minor_allocations.count }}</div>
+                    </div>
+                    <div class="stats-icon bg-info-subtle text-info-emphasis">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-6">
+            <div class="card stats-card">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stats-label">OE Allocated</div>
+                        <div class="stats-value">{{ oe_allocations.count }}</div>
+                    </div>
+                    <div class="stats-icon bg-success-subtle text-success-emphasis">
+                        <i class="fas fa-book"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preference window section -->
+    <div class="section-card mb-4">
+        <div class="section-card-header">
+            <div class="section-card-title">
+                <i class="far fa-clock text-primary"></i> Preference Window
+            </div>
+        </div>
+        <div class="section-card-body">
+            <form method="post" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <div class="col-md-4">
+                    <label class="form-label">Start at</label>
+                    <input type="datetime-local" name="start_at" class="form-control"
+                        value="{{ window_start_value|default_if_none:'' }}">
+                    <small class="text-muted">
+                        From this time students can edit preferences.
+                    </small>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">End at</label>
+                    <input type="datetime-local" name="end_at" class="form-control"
+                        value="{{ window_end_value|default_if_none:'' }}">
+                    <small class="text-muted">
+                        After this time preferences are locked.
+                    </small>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mt-4 pt-2">
+                        {% if window_is_active %}
+                        <input type="checkbox" class="form-check-input" id="window_active" name="is_active" checked>
+                        {% else %}
+                        <input type="checkbox" class="form-check-input" id="window_active" name="is_active">
+                        {% endif %}
+                        <label for="window_active" class="form-check-label">
+                            Window active
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2 text-md-end">
+                    <button type="submit" name="save_window" class="btn btn-primary w-100">
+                        Save window
+                    </button>
+                </div>
+            </form>
+
+            <hr class="my-3">
+
+            <p class="mb-0">
+                <strong>Current window:</strong>
+                {% if window %}
+                {{ window.start_at|date:"d M Y, H:i" }}
+                →
+                {{ window.end_at|date:"d M Y, H:i" }}
+                {% if window.is_active %}
+                <span class="badge bg-success ms-2">Active</span>
+                {% else %}
+                <span class="badge bg-secondary ms-2">Inactive</span>
+                {% endif %}
+                {% else %}
+                <span class="text-muted">No window configured.</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Controls row: allocation + management -->
+    <div class="row mb-4">
+        <!-- Allocation controls -->
+        <div class="col-lg-6 mb-3 mb-lg-0">
+            <div class="section-card h-100">
+                <div class="section-card-header">
+                    <div class="section-card-title">
+                        <i class="fas fa-cogs text-primary"></i> Allocation Engine
+                    </div>
+                    <span class="badge bg-light text-muted">
+                        Latest rules applied
+                    </span>
+                </div>
+                <div class="section-card-body">
+                    <p class="section-muted mb-4">
+                        Execute Minor 1 and Open Electives allocation with latest student preferences and eligibility
+                        rules.
+                    </p>
+                    <form method="post" class="d-grid gap-2">
+                        {% csrf_token %}
+                        <button type="submit" name="run_minor1" class="btn btn-lg btn-primary"
+                            style="border-radius: 8px; padding: 12px 24px; font-weight: 600; letter-spacing: 0.5px;">
+                            <i class="fas fa-play me-2"></i> RUN MINOR 1 ALLOCATION
+                        </button>
+                        <button type="submit" name="run_oe" class="btn btn-lg btn-success"
+                            style="border-radius: 8px; padding: 12px 24px; font-weight: 600; letter-spacing: 0.5px;">
+                            <i class="fas fa-play me-2"></i> RUN OPEN ELECTIVES
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Management / Reports -->
+        <div class="col-lg-6">
+            <div class="section-card h-100">
+                <div class="section-card-header">
+                    <div class="section-card-title">
+                        <i class="fas fa-tools text-secondary"></i> Quick Actions
+                    </div>
+                </div>
+                <div class="section-card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'import_student_results_excel' %}" class="btn btn-outline-info btn-management"
+                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
+                            <i class="fas fa-file-import me-2"></i> Import Data
+                        </a>
+                        <a href="{% url 'student_list' %}" class="btn btn-outline-danger btn-management"
+                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
+                            <i class="fas fa-users me-2"></i> Manage Students
+                        </a>
+                        <a href="{% url 'manage_absconding_students' %}" class="btn btn-outline-warning btn-management"
+                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
+                            <i class="fas fa-user-slash me-2"></i> Absconding Students
+                        </a>
+                        <a href="{% url 'validate_capacity' %}" class="btn btn-outline-secondary btn-management"
+                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
+                            <i class="fas fa-check-circle me-2"></i> Validate Capacity
+                        </a>
+                        <a href="{% url 'manage_courses' %}" class="btn btn-outline-primary btn-management"
+                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
+                            <i class="fas fa-cog me-2"></i> Manage Courses & Rules
+                        </a>
+                        <a href="{% url 'allocation_report' %}" class="btn btn-outline-info btn-management"
+                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
+                            <i class="fas fa-table me-2"></i> Allocation Report
+                        </a>
+                        <a href="{% url 'download_csv_report' %}" class="btn btn-outline-success btn-management"
+                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
+                            <i class="fas fa-download me-2"></i> Download Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Features Row - Enhanced Grid -->
+    <div class="row mb-4 g-3">
+        <div class="col-lg-3 col-md-6">
+            <div class="section-card h-100 position-relative overflow-hidden"
+                style="transition: all 0.3s ease; cursor: pointer;">
+                <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #3b82f6;">
+                    <i class="fas fa-history"></i>
+                </div>
+                <div class="section-card-header">
+                    <div class="section-card-title">
+                        <i class="fas fa-clipboard-list text-info" style="font-size: 1.3rem;"></i> Audit Logs
+                    </div>
+                </div>
+                <div class="section-card-body">
+                    <p class="section-muted mb-3">
+                        Track all system actions, user activities, and allocation changes.
+                    </p>
+                    <a href="{% url 'audit_logs' %}" class="btn btn-info w-100"
+                        style="border-radius: 6px; padding: 8px 16px;">
+                        <i class="fas fa-arrow-right me-2"></i> View Logs
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="section-card h-100 position-relative overflow-hidden"
+                style="transition: all 0.3s ease; cursor: pointer;">
+                <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #f59e0b;">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <div class="section-card-header">
+                    <div class="section-card-title">
+                        <i class="fas fa-chart-pie text-warning" style="font-size: 1.3rem;"></i> Capacity
+                    </div>
+                </div>
+                <div class="section-card-body">
+                    <p class="section-muted mb-3">
+                        Monitor real-time capacity utilization and seat availability.
+                    </p>
+                    <a href="{% url 'capacity_dashboard' %}" class="btn btn-warning w-100"
+                        style="border-radius: 6px; padding: 8px 16px;">
+                        <i class="fas fa-arrow-right me-2"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="section-card h-100 position-relative overflow-hidden"
+                style="transition: all 0.3s ease; cursor: pointer;">
+                <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #10b981;">
+                    <i class="fas fa-check-double"></i>
+                </div>
+                <div class="section-card-header">
+                    <div class="section-card-title">
+                        <i class="fas fa-check-double text-success" style="font-size: 1.3rem;"></i> Validation
+                    </div>
+                </div>
+                <div class="section-card-body">
+                    <p class="section-muted mb-3">
+                        Verify allocation integrity and eligibility compliance.
+                    </p>
+                    <a href="{% url 'validation_report' %}" class="btn btn-success w-100"
+                        style="border-radius: 6px; padding: 8px 16px;">
+                        <i class="fas fa-arrow-right me-2"></i> Validate
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="section-card h-100 position-relative overflow-hidden"
+                style="transition: all 0.3s ease; cursor: pointer; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);">
+                <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #667eea;">
+                    <i class="fas fa-list"></i>
+                </div>
+                <div class="section-card-header"
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-bottom: none;">
+                    <div class="section-card-title" style="color: white;">
+                        <i class="fas fa-chart-bar" style="font-size: 1.3rem;"></i> Merit List
+                    </div>
+                </div>
+                <div class="section-card-body">
+                    <p class="section-muted mb-3">
+                        View students ranked by merit with allocation details and transparency verification.
+                    </p>
+                    <a href="{% url 'admin_merit_list_report' %}" class="btn btn-primary w-100"
+                        style="border-radius: 6px; padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                        <i class="fas fa-arrow-right me-2"></i> View Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add hover effects with CSS -->
+    <style>
+        .section-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .section-card:hover {
+            transform: translateY(-8px) !important;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12) !important;
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .btn-allocation,
+        .btn-management {
+            transition: all 0.3s ease;
+        }
+
+        .btn-allocation:hover,
+        .btn-management:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary,
+        .btn-success,
+        .btn-info,
+        .btn-warning {
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover,
+        .btn-success:hover,
+        .btn-info:hover,
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+        }
+    </style>
+
+    <!-- Student preferences table -->
+    <div class="table-wrapper mb-4">
+        <div class="table-toolbar">
+            <div class="fw-semibold">
+                Student Submitted Preferences
+            </div>
+            <div class="ms-auto d-flex flex-wrap align-items-center gap-2">
+                <div class="toolbar-search">
+                    <input type="text" id="studentSearch" class="form-control form-control-sm"
+                        placeholder="Search by name or roll no">
+                </div>
+                <select id="submissionFilter" class="form-select form-select-sm">
+                    <option value="all">All students</option>
+                    <option value="submitted">With preferences</option>
+                    <option value="missing">Without any preferences</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-modern align-middle" id="studentsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 25%; min-width: 180px;">Student</th>
+                        <th style="width: 15%; min-width: 110px; text-align: center;">Roll No</th>
+                        <th style="width: 15%; min-width: 130px; text-align: center;">Grand Total Marks</th>
+                        <th style="width: 22%; min-width: 200px;">Minor 1</th>
+                        <th style="width: 23%; min-width: 200px;">Open Elective</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students_with_prefs %}
+                    <tr data-name="{{ student.name|lower }}" data-roll="{{ student.roll_no }}"
+                        data-has-any="{% if student.minor_preferences.exists or student.double_minor_preferences.exists or student.oe_preferences.exists %}1{% else %}0{% endif %}">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-primary text-white me-3">
+                                    {{ student.name|first|upper }}
+                                </div>
+                                <div>
+                                    <div class="fw-semibold">{{ student.name }}</div>
+                                    <div class="text-muted" style="font-size:0.8rem;">
+                                        {{ student.get_department_display }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="badge bg-light text-dark">{{ student.roll_no }}</span>
+                        </td>
+                        <td style="text-align: center;">
+                            <span style="font-weight: 600; color: #0066cc;">{{ student.marks }} marks</span>
+                        </td>
+
+                        <!-- Minor 1 -->
+                        <td style="min-width:220px;">
+                            {% for pref in student.minor_preferences.all|dictsort:"priority" %}
+                            <span class="preference-badge">
+                                {{ pref.priority }}. {{ pref.minor_branch.name }}
+                            </span>
+                            {% empty %}
+                            <span class="no-preferences">Not submitted</span>
+                            {% endfor %}
+                            {% if student.minor_time %}
+                            <span class="submitted-time">
+                                <i class="far fa-clock me-1"></i>
+                                {{ student.minor_time|date:"d M Y, H:i" }}
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- OE -->
+                        <td style="min-width:220px;">
+                            {% for pref in student.oe_preferences.all|dictsort:"priority" %}
+                            <span class="preference-badge">
+                                {{ pref.priority }}. {{ pref.oe_subject.name }}
+                            </span>
+                            {% empty %}
+                            <span class="no-preferences">Not submitted</span>
+                            {% endfor %}
+                            {% if student.oe_time %}
+                            <span class="submitted-time">
+                                <i class="far fa-clock me-1"></i>
+                                {{ student.oe_time|date:"d M Y, H:i" }}
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">No students found.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if students_with_prefs.has_other_pages %}
+        <div class="d-flex justify-content-end align-items-center px-3 py-3"
+            style="border-top: 1px solid #e5e7eb; background: #fafafa;">
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    {% if students_with_prefs.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">&laquo; First</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ students_with_prefs.previous_page_number }}">&lsaquo;
+                            Prev</a>
+                    </li>
+                    {% endif %}
+                    {% for num in students_with_prefs.paginator.page_range %}
+                    {% if students_with_prefs.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > students_with_prefs.number|add:"-3" and num < students_with_prefs.number|add:"3" %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                        {% endfor %}
+                        {% if students_with_prefs.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ students_with_prefs.next_page_number }}">Next
+                                &rsaquo;</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ students_with_prefs.paginator.num_pages }}">Last
+                                &raquo;</a>
+                        </li>
+                        {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Simple client-side search + filter
+    (function () {
+        const searchInput = document.getElementById('studentSearch');
+        const filterSelect = document.getElementById('submissionFilter');
+        const rows = document.querySelectorAll('#studentsTable tbody tr');
+
+        function applyFilters() {
+            const term = (searchInput.value || '').toLowerCase().trim();
+            const mode = filterSelect.value;
+
+            rows.forEach(row => {
+                const name = row.dataset.name || '';
+                const roll = (row.dataset.roll || '').toLowerCase();
+                const hasAny = row.dataset.hasAny === '1';
+
+                let visible = true;
+
+                if (term && !(name.includes(term) || roll.includes(term))) {
+                    visible = false;
+                }
+
+                if (mode === 'submitted' && !hasAny) {
+                    visible = false;
+                } else if (mode === 'missing' && hasAny) {
+                    visible = false;
+                }
+
+                row.style.display = visible ? '' : 'none';
+            });
+        }
+
+        if (searchInput && filterSelect) {
+            searchInput.addEventListener('input', applyFilters);
+            filterSelect.addEventListener('change', applyFilters);
+        }
+    })();
+</script>
+{% endblock %}

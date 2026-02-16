@@ -1,0 +1,9 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>Run Allocation</h2>
+<p>Click the button below to run the allocation process.</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary">Run Allocation</button>
+</form>
+{% endblock %}
