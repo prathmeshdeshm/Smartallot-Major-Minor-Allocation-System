@@ -66,7 +66,8 @@ def log_validation_attempt(student, success, reason=None):
 
 def complete_student_validation(student, email, percentage, branch, marks=None):
     """
-    Mark student as validated and update email, percentage, marks, and major_branch (department) fields.
+    Mark student as validated and update email, percentage, and major_branch (department) fields.
+    Grand total marks are NEVER updated here — they are read-only from the imported data.
     This is called ONLY when BOTH steps are complete.
     
     Returns: (success: bool, message: str)
@@ -76,9 +77,8 @@ def complete_student_validation(student, email, percentage, branch, marks=None):
             student.is_validated = True
             student.validated_at = timezone.now()
             student.email = email  # Update email after validation
-            student.percentage = float(percentage)  # Update percentage 
-            if marks is not None:
-                student.marks = float(marks)  # Update marks if provided
+            student.percentage = round(float(percentage), 2)  # Update percentage (max 2 decimal places)
+            # Grand total marks are NOT updated — kept as imported
             student.department = branch  # Update major_branch (department)
             student.save()
             
@@ -99,7 +99,7 @@ def update_student_data_only(student, email, percentage, branch):
     try:
         with transaction.atomic():
             student.email = email
-            student.percentage = float(percentage)
+            student.percentage = round(float(percentage), 2)
             student.department = branch
             # DO NOT set is_validated here
             student.save()
@@ -138,7 +138,8 @@ def is_student_eligible(student, branch: MinorBranch) -> bool:
                     # bad config → fail safe OR skip; here we skip to not block allocation
                     continue
 
-                if student.percentage < min_pct:
+                student_pct = student.percentage if student.percentage is not None else 0
+                if student_pct < min_pct:
                     return False
 
         # 2) Blocked departments rule
@@ -210,7 +211,8 @@ def is_student_eligible_for_oe(student, oe_subject: OpenElective) -> bool:
                     min_pct = float(min_pct)
                 except (TypeError, ValueError):
                     continue
-                if student.percentage < min_pct:
+                student_pct = student.percentage if student.percentage is not None else 0
+                if student_pct < min_pct:
                     return False
 
         elif rtype == 'DEPARTMENT_BLOCK':
@@ -323,27 +325,30 @@ def run_minor1_allocation():
             'preference_submission'
         ).distinct().order_by('-marks', 'preference_submission__submitted_at')
 
-    # Allocation for students WITH preferences
-    for student in students_with_prefs:
-        preferences = MinorPreference.objects.filter(
-            student=student
-        ).order_by('priority')
+        # Cache branches and seat counts in memory
+        branches = list(MinorBranch.objects.all())
+        seat_counts = {b.id: 0 for b in branches}
 
-        for pref in preferences:
-            branch = pref.minor_branch
+        # Prepare allocations in memory (bulk create later)
+        allocations = []
+        allocated_student_ids = set()
 
-            if not is_student_eligible(student, branch):
-                continue
+        # Allocation for students WITH preferences
+        for student in students_with_prefs:
+            preferences = sorted(student.minor_preferences.all(), key=lambda p: p.priority)
 
-            allocated_count = MinorAllocation.objects.filter(
-                minor_branch=branch
-            ).count()
+            for pref in preferences:
+                branch = pref.minor_branch
 
-            # ✅ FIX 7: Capacity overflow protection
-            if allocated_count >= branch.capacity:
-                continue  # Skip if already at capacity
-            
-            if allocated_count < branch.capacity:
+                if not is_student_eligible(student, branch):
+                    continue
+
+                allocated_count = seat_counts.get(branch.id, 0)
+
+                # ✅ FIX 7: Capacity overflow protection
+                if allocated_count >= branch.capacity:
+                    continue  # Skip if already at capacity
+
                 explanation = (
                     f"Allocated Minor '{branch.name}' using preference #{pref.priority}. "
                     f"Student marks: {student.marks}, percentage: {student.percentage}. "
@@ -351,34 +356,36 @@ def run_minor1_allocation():
                     f"Seats filled before allocation: {allocated_count} / {branch.capacity}."
                 )
 
-                MinorAllocation.objects.create(
+                allocations.append(MinorAllocation(
                     student=student,
                     minor_branch=branch,
                     explanation=explanation
-                )
+                ))
+                seat_counts[branch.id] = allocated_count + 1
+                allocated_student_ids.add(student.id)
                 break
 
-    # ✅ FIX 4: Auto-allocation for students WITHOUT preferences (fixed query)
-    students_without_prefs = Student.objects.filter(
-        minor_preferences__isnull=True
-    ).exclude(
-        minorallocation__isnull=False  # Exclude those already allocated
-    ).order_by('-marks', 'user__date_joined')
+        # ✅ FIX 4: Auto-allocation for students WITHOUT preferences (fixed query)
+        students_without_prefs = Student.objects.filter(
+            minor_preferences__isnull=True
+        ).exclude(
+            minorallocation__isnull=False  # Exclude those already allocated
+        ).order_by('-marks', 'user__date_joined')
 
-    for student in students_without_prefs:
-        for branch in MinorBranch.objects.all():
-            if not is_student_eligible(student, branch):
+        for student in students_without_prefs:
+            if student.id in allocated_student_ids:
                 continue
 
-            allocated_count = MinorAllocation.objects.filter(
-                minor_branch=branch
-            ).count()
+            for branch in branches:
+                if not is_student_eligible(student, branch):
+                    continue
 
-            # ✅ FIX 7: Capacity overflow protection
-            if allocated_count >= branch.capacity:
-                continue  # Skip if already at capacity
-            
-            if allocated_count < branch.capacity:
+                allocated_count = seat_counts.get(branch.id, 0)
+
+                # ✅ FIX 7: Capacity overflow protection
+                if allocated_count >= branch.capacity:
+                    continue  # Skip if already at capacity
+
                 explanation = (
                     f"Auto-allocated Minor '{branch.name}'. "
                     f"Student marks: {student.marks}, percentage: {student.percentage}. "
@@ -386,12 +393,18 @@ def run_minor1_allocation():
                     f"Seats filled before allocation: {allocated_count} / {branch.capacity}."
                 )
 
-                MinorAllocation.objects.create(
+                allocations.append(MinorAllocation(
                     student=student,
                     minor_branch=branch,
                     explanation=explanation
-                )
+                ))
+                seat_counts[branch.id] = allocated_count + 1
+                allocated_student_ids.add(student.id)
                 break
+
+        # Bulk create all allocations at once
+        if allocations:
+            MinorAllocation.objects.bulk_create(allocations)
 
     # ✅ FIX 5: Log allocation completion
     allocation_count_after = MinorAllocation.objects.count()
@@ -402,9 +415,7 @@ def run_minor1_allocation():
         ip_address=None
     )
     
-    # ✅ NEW: Send email notifications to students
-    notification_result = send_allocation_notification(allocation_type='minor1')
-    print(f"Email notifications sent: {notification_result['sent']}, failed: {notification_result['failed']}")
+    # Email notifications disabled for faster allocation
     
     return "Minor 1 allocation completed successfully"
 
@@ -426,12 +437,22 @@ def run_minor2_allocation():
         'preference_submission'
     ).distinct().order_by('-marks', 'preference_submission__submitted_at')
 
+    branches = list(MinorBranch.objects.all())
+    seat_counts = {b.id: 0 for b in branches}
+    allocations = []
+    allocated_student_ids = set()
+
+    # Preload Minor 1 allocations for fast lookup
+    minor1_map = {
+        alloc.student_id: alloc.minor_branch_id
+        for alloc in MinorAllocation.objects.all().only('student_id', 'minor_branch_id')
+    }
+
     for student in students_with_prefs:
         # Get the student's Minor 1 allocation to exclude it from Minor 2
-        minor1_allocation = MinorAllocation.objects.filter(student=student).first()
-        minor1_branch_id = minor1_allocation.minor_branch_id if minor1_allocation else None
+        minor1_branch_id = minor1_map.get(student.id)
         
-        preferences = DoubleMinorPreference.objects.filter(student=student).order_by('priority')
+        preferences = sorted(student.double_minor_preferences.all(), key=lambda p: p.priority)
         for pref in preferences:
             branch = pref.minor_branch
             # ✅ UPDATED: Skip this branch if student already allocated to it for Minor 1
@@ -442,12 +463,14 @@ def run_minor2_allocation():
             if not is_student_eligible(student, branch):
                 continue
                 
-            allocated_count = DoubleMinorAllocation.objects.filter(minor_branch=branch).count()
+            allocated_count = seat_counts.get(branch.id, 0)
             # ✅ FIX 7: Capacity overflow protection
             if allocated_count >= branch.capacity:
                 continue
             if allocated_count < branch.capacity:
-                DoubleMinorAllocation.objects.create(student=student, minor_branch=branch)
+                allocations.append(DoubleMinorAllocation(student=student, minor_branch=branch))
+                seat_counts[branch.id] = allocated_count + 1
+                allocated_student_ids.add(student.id)
                 break
     
     # ✅ FIX 4: Auto-allocation phase for students without preferences (fixed query)
@@ -458,12 +481,12 @@ def run_minor2_allocation():
     ).order_by('-marks', 'user__date_joined')
     
     for student in students_without_prefs:
+        if student.id in allocated_student_ids:
+            continue
         # Get the student's Minor 1 allocation to exclude it from Minor 2
-        minor1_allocation = MinorAllocation.objects.filter(student=student).first()
-        minor1_branch_id = minor1_allocation.minor_branch_id if minor1_allocation else None
+        minor1_branch_id = minor1_map.get(student.id)
         
-        available_branches = MinorBranch.objects.all()
-        for branch in available_branches:
+        for branch in branches:
             # ✅ UPDATED: Skip this branch if student already allocated to it for Minor 1
             if minor1_branch_id and branch.id == minor1_branch_id:
                 continue
@@ -472,13 +495,19 @@ def run_minor2_allocation():
             if not is_student_eligible(student, branch):
                 continue
                 
-            allocated_count = DoubleMinorAllocation.objects.filter(minor_branch=branch).count()
+            allocated_count = seat_counts.get(branch.id, 0)
             # ✅ FIX 7: Capacity overflow protection
             if allocated_count >= branch.capacity:
                 continue
             if allocated_count < branch.capacity:
-                DoubleMinorAllocation.objects.create(student=student, minor_branch=branch)
+                allocations.append(DoubleMinorAllocation(student=student, minor_branch=branch))
+                seat_counts[branch.id] = allocated_count + 1
+                allocated_student_ids.add(student.id)
                 break
+
+    # Bulk create all allocations at once
+    if allocations:
+        DoubleMinorAllocation.objects.bulk_create(allocations)
     
     # ✅ FIX 5: Log allocation completion
     allocation_count_after = DoubleMinorAllocation.objects.count()
@@ -489,9 +518,7 @@ def run_minor2_allocation():
         ip_address=None
     )
     
-    # ✅ NEW: Send email notifications to students
-    notification_result = send_allocation_notification(allocation_type='minor2')
-    print(f"Email notifications sent: {notification_result['sent']}, failed: {notification_result['failed']}")
+    # Email notifications disabled for faster allocation
     
     return "Minor 2 allocation completed. Unassigned students were auto-allocated where possible."
 
@@ -512,8 +539,14 @@ def run_oe_allocation():
         'preference_submission'
     ).distinct().order_by('-marks', 'preference_submission__submitted_at')
 
+    # Cache OEs and seat counts in memory
+    oe_list = list(OpenElective.objects.all())
+    seat_counts = {oe.id: 0 for oe in oe_list}
+    allocations = []
+    allocated_student_ids = set()
+
     for student in students_with_prefs:
-        preferences = OEPreference.objects.filter(student=student).order_by('priority')
+        preferences = sorted(student.oe_preferences.all(), key=lambda p: p.priority)
         for pref in preferences:
             oe_subject = pref.oe_subject
 
@@ -521,12 +554,14 @@ def run_oe_allocation():
             if not is_student_eligible_for_oe(student, oe_subject):
                 continue
 
-            allocated_count = OEAllocation.objects.filter(oe_subject=oe_subject).count()
+            allocated_count = seat_counts.get(oe_subject.id, 0)
             # ✅ FIX 7: Capacity overflow protection
             if allocated_count >= oe_subject.capacity:
                 continue
             if allocated_count < oe_subject.capacity:
-                OEAllocation.objects.create(student=student, oe_subject=oe_subject)
+                allocations.append(OEAllocation(student=student, oe_subject=oe_subject))
+                seat_counts[oe_subject.id] = allocated_count + 1
+                allocated_student_ids.add(student.id)
                 break
                 
     # ✅ FIX 4: Auto-allocation phase for students without OE preferences (fixed query)
@@ -537,18 +572,25 @@ def run_oe_allocation():
     ).order_by('-marks', 'user__date_joined')
 
     for student in students_without_prefs:
-        available_oes = OpenElective.objects.all()
-        for oe_subject in available_oes:
+        if student.id in allocated_student_ids:
+            continue
+        for oe_subject in oe_list:
             if not is_student_eligible_for_oe(student, oe_subject):
                 continue
 
-            allocated_count = OEAllocation.objects.filter(oe_subject=oe_subject).count()
+            allocated_count = seat_counts.get(oe_subject.id, 0)
             # ✅ FIX 7: Capacity overflow protection
             if allocated_count >= oe_subject.capacity:
                 continue
             if allocated_count < oe_subject.capacity:
-                OEAllocation.objects.create(student=student, oe_subject=oe_subject)
+                allocations.append(OEAllocation(student=student, oe_subject=oe_subject))
+                seat_counts[oe_subject.id] = allocated_count + 1
+                allocated_student_ids.add(student.id)
                 break
+
+    # Bulk create all allocations at once
+    if allocations:
+        OEAllocation.objects.bulk_create(allocations)
     
     # ✅ FIX 5: Log allocation completion
     allocation_count_after = OEAllocation.objects.count()
@@ -559,9 +601,7 @@ def run_oe_allocation():
         ip_address=None
     )
     
-    # ✅ NEW: Send email notifications to students
-    notification_result = send_allocation_notification(allocation_type='oe')
-    print(f"Email notifications sent: {notification_result['sent']}, failed: {notification_result['failed']}")
+    # Email notifications disabled for faster allocation
     
     return "Open Elective allocation completed with eligibility rules based on major and minors."
 
@@ -570,10 +610,58 @@ def run_oe_allocation():
 # NEW UTILITIES FOR ENHANCED ALLOCATION LOGIC
 # ============================================
 
+# Map common branch names (from Excel) to department codes used in the database
+BRANCH_NAME_MAP = {
+    # Full names
+    'computer science and engineering': 'CSE',
+    'computer science & engineering': 'CSE',
+    'computer science': 'CSE',
+    'information technology': 'IT',
+    'electronics and communication engineering': 'ECE',
+    'electronics & communication engineering': 'ECE',
+    'electronics & comm. engineering': 'ECE',
+    'electronics and communication': 'ECE',
+    'electrical and electronics engineering': 'EEE',
+    'electrical & electronics engineering': 'EEE',
+    'mechanical engineering': 'MECH',
+    'mechanical': 'MECH',
+    'civil engineering': 'CIVIL',
+    'civil': 'CIVIL',
+    'electronics and telecommunication engineering': 'ENTC',
+    'electronics & telecommunication engineering': 'ENTC',
+    'electronics & telecomm. engineering': 'ENTC',
+    'electronics and telecommunication': 'ENTC',
+    'entc': 'ENTC',
+    # Short codes (already valid)
+    'cse': 'CSE',
+    'it': 'IT',
+    'ece': 'ECE',
+    'eee': 'EEE',
+    'mech': 'MECH',
+    'civil': 'CIVIL',
+}
+
+VALID_DEPT_CODES = {'CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'ENTC'}
+
+
+def _normalize_branch(raw_value):
+    """Convert a branch name/code from Excel to a valid department code.
+    Returns the code (e.g. 'IT') or 'GENERAL' if unrecognized."""
+    if not raw_value:
+        return 'GENERAL'
+    cleaned = str(raw_value).strip()
+    # Already a valid short code?
+    if cleaned.upper() in VALID_DEPT_CODES:
+        return cleaned.upper()
+    # Try lookup
+    return BRANCH_NAME_MAP.get(cleaned.lower(), 'GENERAL')
+
+
 def import_students_from_excel(file_obj, admin_user):
     """
     Import student records from Excel file.
     Expected columns (auto-detected): Roll No, Name of Students, Grand Total.
+    Optional column: Branch / Department (auto-detected).
     We scan the header rows to locate these columns by name (case-insensitive).
     If headers are not found, we fall back to common positions (B, C, V).
     Returns: (StudentImport object, error_messages list)
@@ -601,6 +689,7 @@ def import_students_from_excel(file_obj, admin_user):
         roll_col = None
         name_col = None
         gt_col = None
+        branch_col = None          # NEW: Branch column
         header_row_index = None
 
         rows_cache = list(ws.iter_rows(values_only=True))
@@ -628,6 +717,12 @@ def import_students_from_excel(file_obj, admin_user):
                     if 'grand' in c and 'total' in c:
                         gt_col = i
                         break
+            # NEW: Detect branch/department column
+            if branch_col is None:
+                for i, c in enumerate(lowered):
+                    if 'branch' in c or 'department' in c or 'dept' in c:
+                        branch_col = i
+                        break
             if roll_col is not None and name_col is not None and gt_col is not None:
                 break
 
@@ -635,6 +730,7 @@ def import_students_from_excel(file_obj, admin_user):
         roll_col = roll_col if roll_col is not None else 1   # Column B
         name_col = name_col if name_col is not None else 2   # Column C
         gt_col = gt_col if gt_col is not None else 21        # Column V
+        # branch_col stays None if no branch column found (will default to GENERAL)
         header_row_index = header_row_index if header_row_index is not None else 3
 
         for row_idx, row in enumerate(rows_cache, start=1):
@@ -698,14 +794,20 @@ def import_students_from_excel(file_obj, admin_user):
                     failed += 1
                     continue
                 
+                # Detect branch from Excel (if column exists)
+                raw_branch = None
+                if branch_col is not None and len(row) > branch_col:
+                    raw_branch = row[branch_col]
+                branch_code = _normalize_branch(raw_branch)
+                
                 # Store in ImportedStudent
                 ImportedStudent.objects.create(
                     import_batch=import_batch,
                     full_name=full_name_str,
                     roll_no=roll_no_str,
                     marks=marks,
-                    percentage=None,
-                    major_branch='GENERAL'
+                    percentage=0,
+                    major_branch=branch_code
                 )
                 successful += 1
                 
@@ -757,17 +859,33 @@ def validate_student(full_name, roll_no):
         return False, "Student not found in imported records"
 
 
-def record_preference_submission(student):
+def record_preference_submission(student, preference_type='minor'):
     """
     Record server-side timestamp when student submits preferences.
     Creates or updates PreferenceSubmission record.
     """
+    now = timezone.now()
     submission, created = PreferenceSubmission.objects.get_or_create(
-        student=student
+        student=student,
+        defaults={
+            'submitted_at': now,
+            'minor_submitted_at': now if preference_type == 'minor' else None,
+            'oe_submitted_at': now if preference_type == 'oe' else None,
+        }
     )
-    # submitted_at is auto_now_add, so new record gets current time
     if not created:
-        submission.save()  # Update the timestamp
+        update_fields = []
+        submission.submitted_at = now
+        update_fields.append('submitted_at')
+        if preference_type == 'minor':
+            submission.minor_submitted_at = now
+            update_fields.append('minor_submitted_at')
+        elif preference_type == 'oe':
+            submission.oe_submitted_at = now
+            update_fields.append('oe_submitted_at')
+
+        if update_fields:
+            submission.save(update_fields=update_fields)
     return submission
 
 
@@ -945,9 +1063,9 @@ def run_absconding_allocation():
                     user=user,
                     name=imported.full_name,
                     roll_no=imported.roll_no,
-                    department=imported.major_branch,
-                    percentage=imported.percentage,
-                    marks=imported.marks,
+                    department=imported.major_branch if imported.major_branch != 'GENERAL' else 'CSE',
+                    percentage=imported.percentage if imported.percentage is not None else 0,
+                    marks=imported.marks if imported.marks is not None else 0,
                     email=f'{imported.roll_no.lower().strip()}@student.edu',
                     is_validated=True,
                     validated_at=timezone.now(),
@@ -1084,7 +1202,12 @@ def run_absconding_allocation():
                         detail['minor'] = 'WAITLISTED'
             else:
                 alloc = MinorAllocation.objects.filter(student=student).first()
-                detail['minor'] = alloc.minor_branch.name if alloc else 'Already allocated'
+                if alloc:
+                    detail['minor'] = alloc.minor_branch.name
+                    if not absconding.allocated_minor:
+                        absconding.allocated_minor = alloc.minor_branch
+                else:
+                    detail['minor'] = 'Already allocated'
 
             # --- OE allocation ---
             already_has_oe = OEAllocation.objects.filter(student=student).exists()
@@ -1128,7 +1251,12 @@ def run_absconding_allocation():
                         detail['oe'] = 'WAITLISTED'
             else:
                 alloc = OEAllocation.objects.filter(student=student).first()
-                detail['oe'] = alloc.oe_subject.name if alloc else 'Already allocated'
+                if alloc:
+                    detail['oe'] = alloc.oe_subject.name
+                    if not absconding.allocated_oe:
+                        absconding.allocated_oe = alloc.oe_subject
+                else:
+                    detail['oe'] = 'Already allocated'
 
             # Determine overall status
             if detail['minor'] == 'WAITLISTED' and detail['oe'] == 'WAITLISTED':

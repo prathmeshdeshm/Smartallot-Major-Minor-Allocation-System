@@ -5,7 +5,8 @@ import json
 from datetime import datetime
 from django.utils import timezone   # you already had this, ensure it remains
 
-from django.db.models import Max, Min, Q
+from django.db import transaction
+from django.db.models import Max, Min, Q, Count
 from django.db.models import Min
 from django.utils import timezone
 from django.http import HttpResponse
@@ -24,7 +25,8 @@ from .models import (
     Student, MinorBranch, OpenElective, MinorAllocation, DoubleMinorAllocation,
     OEAllocation, MinorPreference, DoubleMinorPreference, OEPreference,
     EligibilityRule, OEEligibilityRule, PreferenceWindow, Reassessment, AuditLog,
-    StudentImport, ImportedStudent, PreferenceSubmission, AbscondingStudent  # NEW
+    StudentImport, ImportedStudent, PreferenceSubmission, AbscondingStudent,  # NEW
+    WaitlistEntry,  # For absconding cleanup
 )
 from .forms import StudentForm, ExcelImportForm, ImportStudentResultsForm, StudentValidationForm, StudentDataCollectionForm  # NEW
 
@@ -104,9 +106,15 @@ def admin_dashboard(request):
     if request.method == 'POST':
         # Save preference window (admin UI)
         if 'save_window' in request.POST:
+            preference_type = request.POST.get('preference_type', 'minor').strip() or 'minor'
+            window_name = request.POST.get('name', '').strip()
             start_str = request.POST.get('start_at', '').strip()
             end_str = request.POST.get('end_at', '').strip()
             active_flag = request.POST.get('is_active') == 'on'
+
+            if preference_type not in {'minor', 'oe'}:
+                messages.error(request, "Invalid preference window type.")
+                return redirect('admin_dashboard')
 
             if not start_str or not end_str:
                 messages.error(request, "Start and end date/time are required to create a preference window.")
@@ -127,17 +135,24 @@ def admin_dashboard(request):
                     messages.error(request, "End time must be after start time.")
                     return redirect('admin_dashboard')
 
-                # Deactivate existing windows (optional business rule)
-                PreferenceWindow.objects.all().update(is_active=False)
+                if active_flag:
+                    PreferenceWindow.objects.filter(
+                        preference_type=preference_type,
+                        is_active=True
+                    ).update(is_active=False)
 
-                # Create the new window
                 PreferenceWindow.objects.create(
+                    preference_type=preference_type,
+                    name=window_name or f"{preference_type.upper()} Preference Window",
                     start_at=start_at,
                     end_at=end_at,
                     is_active=active_flag
                 )
 
-                messages.success(request, "Preference window saved successfully.")
+                messages.success(
+                    request,
+                    f"{preference_type.upper()} preference window saved successfully."
+                )
             except ValueError as e:
                 messages.error(request, f"Invalid date/time format: {e}")
             except Exception as e:
@@ -189,25 +204,34 @@ def admin_dashboard(request):
     except EmptyPage:
         students_with_prefs = paginator.page(paginator.num_pages)
 
-    # current active window (most recent)
-    window = PreferenceWindow.objects.order_by('-start_at').first()
+    def get_window_context(preference_type):
+        window = PreferenceWindow.objects.filter(
+            preference_type=preference_type
+        ).order_by('-start_at').first()
 
-    # prepare values for template datetime-local inputs
-    window_start_value = ""
-    window_end_value = ""
-    window_is_active = False
-    if window:
-        window_is_active = bool(window.is_active)
-        # convert to local form value YYYY-MM-DDTHH:MM (datetime-local)
-        try:
-            local_start = timezone.localtime(window.start_at)
-            local_end = timezone.localtime(window.end_at)
-            window_start_value = local_start.strftime("%Y-%m-%dT%H:%M")
-            window_end_value = local_end.strftime("%Y-%m-%dT%H:%M")
-        except Exception:
-            # fallback: inert empty strings — template will show blank fields
-            window_start_value = ""
-            window_end_value = ""
+        start_value = ""
+        end_value = ""
+        is_active = False
+        if window:
+            is_active = bool(window.is_active)
+            try:
+                local_start = timezone.localtime(window.start_at)
+                local_end = timezone.localtime(window.end_at)
+                start_value = local_start.strftime("%Y-%m-%dT%H:%M:%S")
+                end_value = local_end.strftime("%Y-%m-%dT%H:%M:%S")
+            except Exception:
+                start_value = ""
+                end_value = ""
+
+        return {
+            'window': window,
+            'start_value': start_value,
+            'end_value': end_value,
+            'is_active': is_active,
+        }
+
+    minor_window_context = get_window_context('minor')
+    oe_window_context = get_window_context('oe')
 
     context = {
         'students_with_prefs': students_with_prefs,
@@ -221,11 +245,14 @@ def admin_dashboard(request):
         'minor_rules': EligibilityRule.objects.select_related('branch').order_by('branch__name', 'rule_type'),
         'oe_rules': OEEligibilityRule.objects.select_related('oe_subject').order_by('oe_subject__name', 'rule_type'),
 
-        # Preference window details for admin template
-        'window': window,
-        'window_start_value': window_start_value,
-        'window_end_value': window_end_value,
-        'window_is_active': window_is_active,
+        'minor_window': minor_window_context['window'],
+        'minor_window_start_value': minor_window_context['start_value'],
+        'minor_window_end_value': minor_window_context['end_value'],
+        'minor_window_is_active': minor_window_context['is_active'],
+        'oe_window': oe_window_context['window'],
+        'oe_window_start_value': oe_window_context['start_value'],
+        'oe_window_end_value': oe_window_context['end_value'],
+        'oe_window_is_active': oe_window_context['is_active'],
     }
     return render(request, 'allotment/admin_dashboard.html', context)
 
@@ -340,6 +367,25 @@ def manage_absconding_students(request):
         'imported_student', 'allocated_minor', 'allocated_oe'
     ).all()
 
+    for rec in absconding:
+        if not rec.auto_allocated:
+            continue
+        updates = []
+        student = Student.objects.filter(roll_no__iexact=rec.imported_student.roll_no).first()
+        if student:
+            if not rec.allocated_minor:
+                alloc = MinorAllocation.objects.filter(student=student).first()
+                if alloc:
+                    rec.allocated_minor = alloc.minor_branch
+                    updates.append('allocated_minor')
+            if not rec.allocated_oe:
+                alloc = OEAllocation.objects.filter(student=student).first()
+                if alloc:
+                    rec.allocated_oe = alloc.oe_subject
+                    updates.append('allocated_oe')
+        if updates:
+            rec.save(update_fields=updates)
+
     allocated_count = absconding.filter(auto_allocated=True).count()
     context = {
         'absconding_students': absconding,
@@ -349,6 +395,157 @@ def manage_absconding_students(request):
         'allocation_result': allocation_result,
     }
     return render(request, 'allotment/manage_absconding.html', context)
+
+
+# NEW: DELETE ALL ABSCONDING ALLOCATIONS
+@login_required
+@user_passes_test(is_admin)
+def delete_all_absconding_allocations(request):
+    """Delete all auto-allocated minor & OE allocations for absconding students,
+    remove their auto-generated preferences, waitlist entries, and reset records."""
+    if request.method != 'POST':
+        return redirect('manage_absconding_students')
+
+    with transaction.atomic():
+        absconding_records = AbscondingStudent.objects.filter(auto_allocated=True).select_related('imported_student')
+        total = absconding_records.count()
+
+        if total == 0:
+            messages.info(request, 'No auto-allocated absconding students to delete.')
+            return redirect('manage_absconding_students')
+
+        minor_deleted = 0
+        oe_deleted = 0
+        prefs_deleted = 0
+        waitlist_deleted = 0
+
+        for rec in absconding_records:
+            student = Student.objects.filter(roll_no__iexact=rec.imported_student.roll_no).first()
+            if student:
+                # Delete Minor allocation
+                m_count, _ = MinorAllocation.objects.filter(student=student).delete()
+                minor_deleted += m_count
+
+                # Delete OE allocation
+                o_count, _ = OEAllocation.objects.filter(student=student).delete()
+                oe_deleted += o_count
+
+                # Delete auto-generated preferences
+                mp, _ = MinorPreference.objects.filter(student=student, auto_generated=True).delete()
+                op, _ = OEPreference.objects.filter(student=student, auto_generated=True).delete()
+                prefs_deleted += mp + op
+
+                # Delete waitlist entries
+                w, _ = WaitlistEntry.objects.filter(student=student).delete()
+                waitlist_deleted += w
+
+            # Reset absconding record
+            rec.auto_allocated = False
+            rec.allocated_minor = None
+            rec.allocated_oe = None
+            rec.save()
+
+        # Audit log
+        AuditLog.objects.create(
+            user=request.user,
+            action='allocation_cleared',
+            description=(
+                f'Deleted all absconding auto-allocations. '
+                f'Records reset: {total}, Minor deleted: {minor_deleted}, '
+                f'OE deleted: {oe_deleted}, Preferences removed: {prefs_deleted}, '
+                f'Waitlist entries removed: {waitlist_deleted}.'
+            ),
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+
+    messages.success(
+        request,
+        f'Deleted all absconding allocations — '
+        f'{total} records reset, {minor_deleted} minor & {oe_deleted} OE allocations removed, '
+        f'{prefs_deleted} auto-generated preferences cleared, {waitlist_deleted} waitlist entries removed.'
+    )
+    return redirect('manage_absconding_students')
+
+
+# NEW: BULK DELETE ABSCONDING STUDENTS
+@login_required
+@user_passes_test(is_admin)
+def bulk_delete_absconding_students(request):
+    """Bulk delete selected absconding student records and their allocations."""
+    if request.method != 'POST':
+        return redirect('manage_absconding_students')
+
+    selected_ids = request.POST.getlist('selected_absconding')
+    if not selected_ids:
+        messages.warning(request, 'No students selected for deletion.')
+        return redirect('manage_absconding_students')
+
+    try:
+        selected_ids = [int(sid) for sid in selected_ids]
+    except (ValueError, TypeError):
+        messages.error(request, 'Invalid selection.')
+        return redirect('manage_absconding_students')
+
+    with transaction.atomic():
+        absconding_records = AbscondingStudent.objects.filter(
+            id__in=selected_ids
+        ).select_related('imported_student')
+        total = absconding_records.count()
+
+        if total == 0:
+            messages.info(request, 'No matching absconding records found.')
+            return redirect('manage_absconding_students')
+
+        minor_deleted = 0
+        oe_deleted = 0
+        prefs_deleted = 0
+        waitlist_deleted = 0
+        names = []
+
+        for rec in absconding_records:
+            names.append(f"{rec.imported_student.full_name} ({rec.imported_student.roll_no})")
+            student = Student.objects.filter(roll_no__iexact=rec.imported_student.roll_no).first()
+            if student:
+                # Delete Minor allocation
+                m_count, _ = MinorAllocation.objects.filter(student=student).delete()
+                minor_deleted += m_count
+
+                # Delete OE allocation
+                o_count, _ = OEAllocation.objects.filter(student=student).delete()
+                oe_deleted += o_count
+
+                # Delete auto-generated preferences
+                mp, _ = MinorPreference.objects.filter(student=student, auto_generated=True).delete()
+                op, _ = OEPreference.objects.filter(student=student, auto_generated=True).delete()
+                prefs_deleted += mp + op
+
+                # Delete waitlist entries
+                w, _ = WaitlistEntry.objects.filter(student=student).delete()
+                waitlist_deleted += w
+
+        # Delete the absconding records themselves
+        absconding_records.delete()
+
+        # Audit log
+        AuditLog.objects.create(
+            user=request.user,
+            action='allocation_cleared',
+            description=(
+                f'Bulk deleted {total} absconding student(s) and their allocations. '
+                f'Minor deleted: {minor_deleted}, OE deleted: {oe_deleted}, '
+                f'Preferences removed: {prefs_deleted}, Waitlist removed: {waitlist_deleted}. '
+                f'Students: {", ".join(names[:10])}{" ..." if len(names) > 10 else ""}'
+            ),
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+
+    messages.success(
+        request,
+        f'Deleted {total} absconding student(s) — '
+        f'{minor_deleted} minor & {oe_deleted} OE allocations removed, '
+        f'{prefs_deleted} preferences cleared, {waitlist_deleted} waitlist entries removed.'
+    )
+    return redirect('manage_absconding_students')
 
 
 # NEW: CAPACITY VALIDATION VIEW
@@ -449,7 +646,6 @@ def validate_student_form(request):
         if request.method == 'POST':
             form = StudentDataCollectionForm(request.POST)
             if form.is_valid():
-                marks = form.cleaned_data.get('marks')
                 percentage = form.cleaned_data.get('percentage')
                 email = form.cleaned_data.get('email')
                 
@@ -457,8 +653,11 @@ def validate_student_form(request):
                 # This ensures branch cannot be changed by student input
                 branch = student.department  # Use only the imported branch, ignore form input
                 
-                # Mark student as validated AND update their data (branch stays as imported)
-                success, msg = complete_student_validation(student, email, percentage, branch, marks)
+                # ✅ FIX: Do NOT use marks from form - always use imported data (student.marks)
+                # This ensures grand total marks cannot be changed by student input
+                
+                # Mark student as validated AND update their data (branch & marks stay as imported)
+                success, msg = complete_student_validation(student, email, percentage, branch)
                 
                 if success:
                     request.session['validation_step_passed'] = False  # Reset for next login
@@ -475,7 +674,6 @@ def validate_student_form(request):
             # GET request - pre-fill with student data
             form = StudentDataCollectionForm(initial={
                 'branch': student.department,
-                'marks': student.marks if student.marks > 0 else '',
                 'percentage': student.percentage if student.percentage > 0 else '',
                 'email': student.email if student.email else ''
             })
@@ -514,29 +712,28 @@ def student_dashboard(request):
         messages.warning(request, "Please verify your identity before accessing the dashboard.")
         return redirect('validate_student_form')
 
-    # Preference window (pick active window if any)
-    now = timezone.now()
-    window = PreferenceWindow.objects.filter(is_active=True).order_by('-start_at').first()
+    def get_window_state(preference_type):
+        now = timezone.now()
+        window = PreferenceWindow.objects.filter(
+            preference_type=preference_type
+        ).order_by('-start_at').first()
 
-    if window:
-        if window.start_at <= now <= window.end_at:
-            window_is_open = True
-            window_status = 'open'
-        elif now < window.start_at:
-            window_is_open = False
-            window_status = 'not_started'
-        else:
-            window_is_open = False
-            window_status = 'ended'
-    else:
-        window = None
-        window_is_open = False
-        window_status = 'no_window'
+        if not window:
+            return None, False, 'no_window'
+        if window.is_active and window.start_at <= now <= window.end_at:
+            return window, True, 'open'
+        if now < window.start_at:
+            return window, False, 'not_started'
+        return window, False, 'ended'
+
+    minor_window, minor_window_is_open, minor_window_status = get_window_state('minor')
+    oe_window, oe_window_is_open, oe_window_status = get_window_state('oe')
+    any_window_open = minor_window_is_open or oe_window_is_open
 
     # If student tries to POST when window is closed -> error and redirect
     if request.method == 'POST':
-        if not window_is_open:
-            messages.error(request, "Preference window is closed. You cannot change your preferences now.")
+        if not any_window_open:
+            messages.error(request, "All preference windows are closed. You cannot change your preferences now.")
             return redirect('student_dashboard')
 
         # Get current/existing preferences before clearing
@@ -641,17 +838,29 @@ def student_dashboard(request):
             return True
 
         # save preferences helper with validation
-        def save_preferences(PreferenceModel, post_key, CourseModel, course_field, eligibility_check=None, check_args=None, fallback_key=None):
+        def save_preferences(
+            PreferenceModel,
+            post_key,
+            CourseModel,
+            course_field,
+            eligibility_check=None,
+            check_args=None,
+            fallback_key=None,
+            explicit_ids=None,
+        ):
             # Delete existing preferences for this student
             PreferenceModel.objects.filter(student=student).delete()
             
-            ordered_ids_str = request.POST.get(post_key, '')
-            if ordered_ids_str:
-                ordered_ids = ordered_ids_str.split(',')
-            elif fallback_key:
-                ordered_ids = request.POST.getlist(fallback_key)
+            if explicit_ids is not None:
+                ordered_ids = [str(item_id) for item_id in explicit_ids]
             else:
-                ordered_ids = []
+                ordered_ids_str = request.POST.get(post_key, '')
+                if ordered_ids_str:
+                    ordered_ids = ordered_ids_str.split(',')
+                elif fallback_key:
+                    ordered_ids = request.POST.getlist(fallback_key)
+                else:
+                    ordered_ids = []
 
             if ordered_ids:
                 seen_ids = set()
@@ -684,6 +893,61 @@ def student_dashboard(request):
                     except (CourseModel.DoesNotExist, ValueError):
                         continue
 
+        MIN_REQUIRED_PREFS = 3
+
+        def is_provisional_seat_available(course, preference_model, course_field):
+            current_count = preference_model.objects.filter(
+                **{course_field: course}
+            ).exclude(student=student).count()
+            return current_count < course.capacity
+
+        def normalize_posted_ids(order_key, fallback_key):
+            ordered_ids_str = request.POST.get(order_key, '')
+            if ordered_ids_str:
+                return [item_id.strip() for item_id in ordered_ids_str.split(',') if item_id.strip()]
+            return [item_id.strip() for item_id in request.POST.getlist(fallback_key) if item_id.strip()]
+
+        def build_final_ids(selected_ids, candidate_courses, preference_model, course_field, eligibility_check, check_args=None):
+            eligible_available = []
+
+            for course in candidate_courses:
+                args = [course, student]
+                if check_args:
+                    args.extend(check_args)
+
+                if eligibility_check and not eligibility_check(*args):
+                    continue
+
+                if not is_provisional_seat_available(course, preference_model, course_field):
+                    continue
+
+                eligible_available.append(course.id)
+
+            selected_unique = []
+            seen = set()
+            for item_id in selected_ids:
+                try:
+                    parsed_id = int(item_id)
+                except (TypeError, ValueError):
+                    continue
+
+                if parsed_id in seen:
+                    continue
+                seen.add(parsed_id)
+
+                if parsed_id in eligible_available:
+                    selected_unique.append(parsed_id)
+
+            final_ids = list(selected_unique)
+            for course_id in eligible_available:
+                if len(final_ids) >= MIN_REQUIRED_PREFS:
+                    break
+                if course_id not in final_ids:
+                    final_ids.append(course_id)
+
+            auto_added = max(0, len(final_ids) - len(selected_unique))
+            return final_ids, len(eligible_available), auto_added
+
         # Get the selected M1 branch for M2 validation
         selected_m1_str = request.POST.get('minor1_order', '')
         selected_m1_id = selected_m1_str.split(',')[0] if selected_m1_str else None
@@ -694,36 +958,109 @@ def student_dashboard(request):
             except MinorBranch.DoesNotExist:
                 pass
 
-        save_preferences(
-            MinorPreference,
-            'minor1_order',
-            MinorBranch,
-            'minor_branch',
-            is_branch_eligible_for_minor1,
-            fallback_key='minor1_branches'
-        )
-        save_preferences(
-            DoubleMinorPreference,
-            'minor2_order',
-            MinorBranch,
-            'minor_branch',
-            is_branch_eligible_for_minor2,
-            check_args=[selected_m1_branch_for_m2],
-            fallback_key='minor2_branches'
-        )
-        save_preferences(
-            OEPreference,
-            'oe_order',
-            OpenElective,
-            'oe_subject',
-            is_oe_eligible,
-            fallback_key='oe_branches'
-        )
-        
-        # NEW: Record server-side timestamp for preference submission
-        record_preference_submission(student)
+        saved_sections = []
 
-        messages.success(request, 'Your preferences have been saved successfully!')
+        if minor_window_is_open:
+            requested_minor_ids = normalize_posted_ids('minor1_order', 'minor1_branches')
+            final_minor_ids, available_minor_count, minor_auto_added = build_final_ids(
+                requested_minor_ids,
+                MinorBranch.objects.all().order_by('name'),
+                MinorPreference,
+                'minor_branch',
+                is_branch_eligible_for_minor1,
+            )
+
+            if available_minor_count < MIN_REQUIRED_PREFS:
+                messages.error(
+                    request,
+                    f"Only {available_minor_count} provisional minor seats are available for your eligibility. "
+                    f"At least {MIN_REQUIRED_PREFS} are required. Please contact admin."
+                )
+                return redirect('student_dashboard')
+
+            if len(final_minor_ids) < MIN_REQUIRED_PREFS:
+                messages.error(
+                    request,
+                    f"Please submit at least {MIN_REQUIRED_PREFS} valid minor preferences with available seats."
+                )
+                return redirect('student_dashboard')
+
+            save_preferences(
+                MinorPreference,
+                'minor1_order',
+                MinorBranch,
+                'minor_branch',
+                is_branch_eligible_for_minor1,
+                fallback_key='minor1_branches',
+                explicit_ids=final_minor_ids,
+            )
+
+            save_preferences(
+                DoubleMinorPreference,
+                'minor2_order',
+                MinorBranch,
+                'minor_branch',
+                is_branch_eligible_for_minor2,
+                check_args=[selected_m1_branch_for_m2],
+                fallback_key='minor2_branches'
+            )
+
+            record_preference_submission(student, preference_type='minor')
+            saved_sections.append('minor')
+
+            if minor_auto_added > 0:
+                messages.info(
+                    request,
+                    f"Added {minor_auto_added} alternate minor preference(s) due to full/unavailable selections."
+                )
+
+        if oe_window_is_open:
+            requested_oe_ids = normalize_posted_ids('oe_order', 'oe_branches')
+            final_oe_ids, available_oe_count_for_submit, oe_auto_added = build_final_ids(
+                requested_oe_ids,
+                OpenElective.objects.all().order_by('name'),
+                OEPreference,
+                'oe_subject',
+                is_oe_eligible,
+            )
+
+            if available_oe_count_for_submit < MIN_REQUIRED_PREFS:
+                messages.error(
+                    request,
+                    f"Only {available_oe_count_for_submit} provisional OE seats are available for your eligibility. "
+                    f"At least {MIN_REQUIRED_PREFS} are required. Please contact admin."
+                )
+                return redirect('student_dashboard')
+
+            if len(final_oe_ids) < MIN_REQUIRED_PREFS:
+                messages.error(
+                    request,
+                    f"Please submit at least {MIN_REQUIRED_PREFS} valid OE preferences with available seats."
+                )
+                return redirect('student_dashboard')
+
+            save_preferences(
+                OEPreference,
+                'oe_order',
+                OpenElective,
+                'oe_subject',
+                is_oe_eligible,
+                fallback_key='oe_branches',
+                explicit_ids=final_oe_ids,
+            )
+            record_preference_submission(student, preference_type='oe')
+            saved_sections.append('open elective')
+
+            if oe_auto_added > 0:
+                messages.info(
+                    request,
+                    f"Added {oe_auto_added} alternate OE preference(s) due to full/unavailable selections."
+                )
+
+        if saved_sections:
+            messages.success(request, f"Saved {' and '.join(saved_sections)} preferences successfully.")
+        else:
+            messages.warning(request, 'No preferences were saved.')
         return redirect('student_dashboard')
 
     # Helper function to check if a branch is eligible for a student
@@ -850,12 +1187,22 @@ def student_dashboard(request):
     # Get the restricted branch for this student's major
     restricted_branch_name = restricted_pairs.get(student_major, None)
     
+    minor_pref_counts = {
+        row['minor_branch']: row['total']
+        for row in MinorPreference.objects.exclude(student=student)
+        .values('minor_branch')
+        .annotate(total=Count('id'))
+    }
+
     # Filter Minor 1: all branches, but mark disabled
     all_m1_branches = MinorBranch.objects.exclude(id__in=selected_m1_ids)
     available_m1 = []
     disabled_m1_ids = set()
     
     for b in all_m1_branches:
+        provisional_count = minor_pref_counts.get(b.id, 0)
+        b.remaining_seats = max(b.capacity - provisional_count, 0)
+
         # Check if it's the student's own major branch
         if b.offering_dept == student.department:
             disabled_m1_ids.add(b.id)
@@ -864,7 +1211,10 @@ def student_dashboard(request):
             disabled_m1_ids.add(b.id)
         # Check if it's eligible
         elif is_branch_eligible_for_minor1(b, student):
-            available_m1.append(b)
+            if provisional_count < b.capacity:
+                available_m1.append(b)
+            else:
+                disabled_m1_ids.add(b.id)
         else:
             # Not eligible, so disable it
             disabled_m1_ids.add(b.id)
@@ -900,6 +1250,13 @@ def student_dashboard(request):
     selected_oe_prefs = OEPreference.objects.filter(student=student).order_by('priority')
     selected_oe_ids = selected_oe_prefs.values_list('oe_subject_id', flat=True)
     
+    oe_pref_counts = {
+        row['oe_subject']: row['total']
+        for row in OEPreference.objects.exclude(student=student)
+        .values('oe_subject')
+        .annotate(total=Count('id'))
+    }
+
     # Filter OE: get all not selected, then identify eligible vs disabled
     all_oe = OpenElective.objects.exclude(id__in=selected_oe_ids)
     available_oe = []
@@ -916,6 +1273,9 @@ def student_dashboard(request):
     ]
     
     for oe in all_oe:
+        provisional_count = oe_pref_counts.get(oe.id, 0)
+        oe.remaining_seats = max(oe.capacity - provisional_count, 0)
+
         oe_dept = oe.offering_dept if hasattr(oe, 'offering_dept') else None
         
         # Block OE from student's major department (Rule 1)
@@ -962,7 +1322,10 @@ def student_dashboard(request):
         
         # If it passes eligibility check, add to available
         if is_oe_eligible(oe, student):
-            available_oe.append(oe)
+            if provisional_count < oe.capacity:
+                available_oe.append(oe)
+            else:
+                disabled_oe_ids.add(oe.id)
         else:
             # Not eligible, disable it
             disabled_oe_ids.add(oe.id)
@@ -994,6 +1357,27 @@ def student_dashboard(request):
             'department': oe_alloc.oe_subject.offering_dept,
         })
 
+    if not allocations:
+        absconding = AbscondingStudent.objects.select_related(
+            'imported_student', 'allocated_minor', 'allocated_oe'
+        ).filter(
+            imported_student__roll_no__iexact=student.roll_no,
+            auto_allocated=True
+        ).first()
+        if absconding:
+            if absconding.allocated_minor:
+                allocations.append({
+                    'type': 'MINOR1',
+                    'name': absconding.allocated_minor.name,
+                    'department': absconding.allocated_minor.offering_dept,
+                })
+            if absconding.allocated_oe:
+                allocations.append({
+                    'type': 'OE',
+                    'name': absconding.allocated_oe.name,
+                    'department': absconding.allocated_oe.offering_dept,
+                })
+
     # Debug info: total OEs vs available
     total_oe_count = OpenElective.objects.count()
     available_oe_count = len(available_oe)
@@ -1014,16 +1398,24 @@ def student_dashboard(request):
         'available_m1': available_m1_all,
         'disabled_m1_ids': list(disabled_m1_ids),
         'selected_m1_prefs': selected_m1_prefs,
+        'selected_m1_pref_ids': list(selected_m1_prefs.values_list('minor_branch_id', flat=True)),
         'available_m2': available_m2_all,
         'disabled_m2_ids': list(disabled_m2_ids),
         'selected_m2_prefs': selected_m2_prefs,
         'available_oe': available_oe,
         'disabled_oe_ids': list(disabled_oe_ids),
         'selected_oe_prefs': selected_oe_prefs,
+        'selected_oe_pref_ids': list(selected_oe_prefs.values_list('oe_subject_id', flat=True)),
 
-        'window': window,
-        'window_is_open': window_is_open,
-        'window_status': window_status,
+        'window': minor_window or oe_window,
+        'window_is_open': any_window_open,
+        'window_status': 'open' if any_window_open else 'closed',
+        'minor_window': minor_window,
+        'minor_window_is_open': minor_window_is_open,
+        'minor_window_status': minor_window_status,
+        'oe_window': oe_window,
+        'oe_window_is_open': oe_window_is_open,
+        'oe_window_status': oe_window_status,
         'total_oe_count': total_oe_count,
         'available_oe_count': available_oe_count,
         
@@ -2675,6 +3067,63 @@ def allocation_report(request):
         else:
             students_data[alloc.student.id]['oe'] = alloc.oe_subject.name
             students_data[alloc.student.id]['oe_offering_dept'] = alloc.oe_subject.offering_dept
+
+    absconding_allocs = AbscondingStudent.objects.select_related(
+        'imported_student', 'allocated_minor', 'allocated_oe'
+    ).filter(auto_allocated=True)
+    dept_map = dict(Student.DEPARTMENTS)
+    for rec in absconding_allocs:
+        if not (rec.allocated_minor or rec.allocated_oe):
+            continue
+        imported = rec.imported_student
+        student = Student.objects.filter(roll_no__iexact=imported.roll_no).first()
+        if student and student.id in students_data:
+            continue
+
+        key = student.id if student else f"absconding-{rec.id}"
+        students_data[key] = {
+            'student': student,
+            'roll_no': student.roll_no if student else imported.roll_no,
+            'name': student.name if student else imported.full_name,
+            'department': student.get_department_display() if student else dept_map.get(imported.major_branch, imported.major_branch),
+            'percentage': student.percentage if student else imported.percentage,
+            'marks': student.marks if student else imported.marks,
+            'minor_1': rec.allocated_minor.name if rec.allocated_minor else None,
+            'minor_1_offering_dept': rec.allocated_minor.offering_dept if rec.allocated_minor else None,
+            'minor_2': None,
+            'minor_2_offering_dept': None,
+            'oe': rec.allocated_oe.name if rec.allocated_oe else None,
+            'oe_offering_dept': rec.allocated_oe.offering_dept if rec.allocated_oe else None,
+        }
+
+    # Include auto-allocated absconding students without allocation records
+    absconding_allocs = AbscondingStudent.objects.select_related(
+        'imported_student', 'allocated_minor', 'allocated_oe'
+    ).filter(auto_allocated=True)
+    dept_map = dict(Student.DEPARTMENTS)
+    for rec in absconding_allocs:
+        if not (rec.allocated_minor or rec.allocated_oe):
+            continue
+        imported = rec.imported_student
+        student = Student.objects.filter(roll_no__iexact=imported.roll_no).first()
+        if student and student.id in students_data:
+            continue
+
+        key = student.id if student else f"absconding-{rec.id}"
+        students_data[key] = {
+            'student': student,
+            'roll_no': student.roll_no if student else imported.roll_no,
+            'name': student.name if student else imported.full_name,
+            'department': student.get_department_display() if student else dept_map.get(imported.major_branch, imported.major_branch),
+            'percentage': student.percentage if student else imported.percentage,
+            'marks': student.marks if student else imported.marks,
+            'minor_1': rec.allocated_minor.name if rec.allocated_minor else None,
+            'minor_1_offering_dept': rec.allocated_minor.offering_dept if rec.allocated_minor else None,
+            'minor_2': None,
+            'minor_2_offering_dept': None,
+            'oe': rec.allocated_oe.name if rec.allocated_oe else None,
+            'oe_offering_dept': rec.allocated_oe.offering_dept if rec.allocated_oe else None,
+        }
     
     # Sort by name
     sorted_students = sorted(students_data.values(), key=lambda x: x['name'])
@@ -2871,13 +3320,17 @@ def register_absconding_student(request, absconding_id):
                 last_name=' '.join(imported.full_name.split()[1:]) if len(imported.full_name.split()) > 1 else '',
             )
 
+        safe_dept = imported.major_branch if imported.major_branch and imported.major_branch != 'GENERAL' else 'CSE'
+        safe_pct = imported.percentage if imported.percentage is not None else 0
+        safe_marks = imported.marks if imported.marks is not None else 0
+
         student = Student.objects.create(
             user=user,
             name=imported.full_name,
             roll_no=imported.roll_no,
-            department=imported.major_branch,
-            percentage=imported.percentage,
-            marks=imported.marks,
+            department=safe_dept,
+            percentage=safe_pct,
+            marks=safe_marks,
             email=f'{imported.roll_no.lower()}@student.edu',
             is_validated=True,
             validated_at=timezone.now(),

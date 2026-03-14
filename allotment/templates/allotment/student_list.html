@@ -282,10 +282,13 @@
                                     <i class="fas fa-user-plus"></i>
                                 </a>
                                 {% endif %}
-                                <button type="button" class="btn btn-outline-danger" title="Delete Record"
-                                    onclick="confirmDeleteAbsconding('{{ student.absconding_id }}', '{{ student.name }}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                <form method="post" action="{% url 'delete_absconding_student' student.absconding_id %}"
+                                    onsubmit="return confirm('Are you sure you want to delete the absconding record for {{ student.name }}? This action cannot be undone.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="Delete Record">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>
@@ -304,20 +307,6 @@
         checkboxes.forEach(checkbox => checkbox.checked = e.target.checked);
     });
 
-    // Delete absconding student confirmation
-    function confirmDeleteAbsconding(abscondingId, studentName) {
-        if (confirm('Are you sure you want to delete the absconding record for ' + studentName + '? This action cannot be undone.')) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/allotment/dashboard/admin/absconding-students/' + abscondingId + '/delete/';
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = '{{ csrf_token }}';
-            form.appendChild(csrfInput);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
+    // Absconding delete handled by inline POST form.
 </script>
 {% endblock %}

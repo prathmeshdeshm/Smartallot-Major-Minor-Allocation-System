@@ -319,64 +319,112 @@
     <div class="section-card mb-4">
         <div class="section-card-header">
             <div class="section-card-title">
-                <i class="far fa-clock text-primary"></i> Preference Window
+                <i class="far fa-clock text-primary"></i> Preference Windows
             </div>
         </div>
         <div class="section-card-body">
-            <form method="post" class="row g-3 align-items-end">
-                {% csrf_token %}
-                <div class="col-md-4">
-                    <label class="form-label">Start at</label>
-                    <input type="datetime-local" name="start_at" class="form-control"
-                        value="{{ window_start_value|default_if_none:'' }}">
-                    <small class="text-muted">
-                        From this time students can edit preferences.
-                    </small>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <form method="post" class="row g-3 align-items-end border rounded p-3 h-100 bg-light-subtle">
+                        {% csrf_token %}
+                        <input type="hidden" name="preference_type" value="minor">
+                        <div class="col-12">
+                            <h6 class="mb-1 fw-semibold text-primary">Minor Preferences Window</h6>
+                            <small class="text-muted">Configure the submission window for minor preferences.</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Window name</label>
+                            <input type="text" name="name" class="form-control"
+                                value="{% if minor_window %}{{ minor_window.name }}{% endif %}"
+                                placeholder="Minor Preference Window">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Start at</label>
+                            <input type="datetime-local" name="start_at" class="form-control" step="1"
+                                value="{{ minor_window_start_value|default_if_none:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">End at</label>
+                            <input type="datetime-local" name="end_at" class="form-control" step="1"
+                                value="{{ minor_window_end_value|default_if_none:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="minor_window_active"
+                                    name="is_active" {% if minor_window_is_active %}checked{% endif %}>
+                                <label for="minor_window_active" class="form-check-label">Window active</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <button type="submit" name="save_window"
+                                class="btn btn-primary w-100 rounded-pill fw-semibold">
+                                Save Minor Window
+                            </button>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block">
+                                <strong>Current:</strong>
+                                {% if minor_window %}
+                                {{ minor_window.start_at|date:"d M Y, H:i:s" }} → {{ minor_window.end_at|date:"d M Y, H:i:s" }}
+                                {% if minor_window.is_active %}<span class="badge bg-success ms-2">Active</span>{% else %}<span class="badge bg-secondary ms-2">Inactive</span>{% endif %}
+                                {% else %}
+                                No minor window configured.
+                                {% endif %}
+                            </small>
+                        </div>
+                    </form>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">End at</label>
-                    <input type="datetime-local" name="end_at" class="form-control"
-                        value="{{ window_end_value|default_if_none:'' }}">
-                    <small class="text-muted">
-                        After this time preferences are locked.
-                    </small>
+                <div class="col-lg-6">
+                    <form method="post" class="row g-3 align-items-end border rounded p-3 h-100 bg-light-subtle">
+                        {% csrf_token %}
+                        <input type="hidden" name="preference_type" value="oe">
+                        <div class="col-12">
+                            <h6 class="mb-1 fw-semibold text-success">Open Elective Window</h6>
+                            <small class="text-muted">Configure the submission window for OE preferences.</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Window name</label>
+                            <input type="text" name="name" class="form-control"
+                                value="{% if oe_window %}{{ oe_window.name }}{% endif %}"
+                                placeholder="OE Preference Window">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Start at</label>
+                            <input type="datetime-local" name="start_at" class="form-control" step="1"
+                                value="{{ oe_window_start_value|default_if_none:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">End at</label>
+                            <input type="datetime-local" name="end_at" class="form-control" step="1"
+                                value="{{ oe_window_end_value|default_if_none:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="oe_window_active" name="is_active"
+                                    {% if oe_window_is_active %}checked{% endif %}>
+                                <label for="oe_window_active" class="form-check-label">Window active</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <button type="submit" name="save_window"
+                                class="btn btn-success w-100 rounded-pill fw-semibold">
+                                Save OE Window
+                            </button>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block">
+                                <strong>Current:</strong>
+                                {% if oe_window %}
+                                {{ oe_window.start_at|date:"d M Y, H:i:s" }} → {{ oe_window.end_at|date:"d M Y, H:i:s" }}
+                                {% if oe_window.is_active %}<span class="badge bg-success ms-2">Active</span>{% else %}<span class="badge bg-secondary ms-2">Inactive</span>{% endif %}
+                                {% else %}
+                                No OE window configured.
+                                {% endif %}
+                            </small>
+                        </div>
+                    </form>
                 </div>
-                <div class="col-md-2">
-                    <div class="form-check mt-4 pt-2">
-                        {% if window_is_active %}
-                        <input type="checkbox" class="form-check-input" id="window_active" name="is_active" checked>
-                        {% else %}
-                        <input type="checkbox" class="form-check-input" id="window_active" name="is_active">
-                        {% endif %}
-                        <label for="window_active" class="form-check-label">
-                            Window active
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-2 text-md-end">
-                    <button type="submit" name="save_window" class="btn btn-primary w-100">
-                        Save window
-                    </button>
-                </div>
-            </form>
-
-            <hr class="my-3">
-
-            <p class="mb-0">
-                <strong>Current window:</strong>
-                {% if window %}
-                {{ window.start_at|date:"d M Y, H:i" }}
-                →
-                {{ window.end_at|date:"d M Y, H:i" }}
-                {% if window.is_active %}
-                <span class="badge bg-success ms-2">Active</span>
-                {% else %}
-                <span class="badge bg-secondary ms-2">Inactive</span>
-                {% endif %}
-                {% else %}
-                <span class="text-muted">No window configured.</span>
-                {% endif %}
-            </p>
+            </div>
         </div>
     </div>
 
@@ -461,21 +509,22 @@
     <div class="row mb-4 g-3">
         <div class="col-lg-3 col-md-6">
             <div class="section-card h-100 position-relative overflow-hidden"
-                style="transition: all 0.3s ease; cursor: pointer;">
-                <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #3b82f6;">
+                style="transition: all 0.3s ease; cursor: pointer; background: linear-gradient(135deg, #0ea5e915 0%, #6366f115 100%);">
+                <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #0ea5e9;">
                     <i class="fas fa-history"></i>
                 </div>
-                <div class="section-card-header">
-                    <div class="section-card-title">
-                        <i class="fas fa-clipboard-list text-info" style="font-size: 1.3rem;"></i> Audit Logs
+                <div class="section-card-header"
+                    style="background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); color: white; border-bottom: none;">
+                    <div class="section-card-title" style="color: white;">
+                        <i class="fas fa-clipboard-list" style="font-size: 1.3rem;"></i> Audit Logs
                     </div>
                 </div>
                 <div class="section-card-body">
                     <p class="section-muted mb-3">
                         Track all system actions, user activities, and allocation changes.
                     </p>
-                    <a href="{% url 'audit_logs' %}" class="btn btn-info w-100"
-                        style="border-radius: 6px; padding: 8px 16px;">
+                    <a href="{% url 'audit_logs' %}" class="btn btn-primary w-100"
+                        style="border-radius: 6px; padding: 8px 16px; background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); border: none;">
                         <i class="fas fa-arrow-right me-2"></i> View Logs
                     </a>
                 </div>
@@ -484,21 +533,22 @@
 
         <div class="col-lg-3 col-md-6">
             <div class="section-card h-100 position-relative overflow-hidden"
-                style="transition: all 0.3s ease; cursor: pointer;">
+                style="transition: all 0.3s ease; cursor: pointer; background: linear-gradient(135deg, #f59e0b15 0%, #f9731615 100%);">
                 <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #f59e0b;">
                     <i class="fas fa-chart-pie"></i>
                 </div>
-                <div class="section-card-header">
-                    <div class="section-card-title">
-                        <i class="fas fa-chart-pie text-warning" style="font-size: 1.3rem;"></i> Capacity
+                <div class="section-card-header"
+                    style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); color: white; border-bottom: none;">
+                    <div class="section-card-title" style="color: white;">
+                        <i class="fas fa-chart-pie" style="font-size: 1.3rem;"></i> Capacity
                     </div>
                 </div>
                 <div class="section-card-body">
                     <p class="section-muted mb-3">
                         Monitor real-time capacity utilization and seat availability.
                     </p>
-                    <a href="{% url 'capacity_dashboard' %}" class="btn btn-warning w-100"
-                        style="border-radius: 6px; padding: 8px 16px;">
+                    <a href="{% url 'capacity_dashboard' %}" class="btn btn-primary w-100"
+                        style="border-radius: 6px; padding: 8px 16px; background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); border: none;">
                         <i class="fas fa-arrow-right me-2"></i> Dashboard
                     </a>
                 </div>
@@ -507,21 +557,22 @@
 
         <div class="col-lg-3 col-md-6">
             <div class="section-card h-100 position-relative overflow-hidden"
-                style="transition: all 0.3s ease; cursor: pointer;">
+                style="transition: all 0.3s ease; cursor: pointer; background: linear-gradient(135deg, #10b98115 0%, #22c55e15 100%);">
                 <div style="position: absolute; top: 0; right: -50px; font-size: 80px; opacity: 0.05; color: #10b981;">
                     <i class="fas fa-check-double"></i>
                 </div>
-                <div class="section-card-header">
-                    <div class="section-card-title">
-                        <i class="fas fa-check-double text-success" style="font-size: 1.3rem;"></i> Validation
+                <div class="section-card-header"
+                    style="background: linear-gradient(135deg, #10b981 0%, #22c55e 100%); color: white; border-bottom: none;">
+                    <div class="section-card-title" style="color: white;">
+                        <i class="fas fa-check-double" style="font-size: 1.3rem;"></i> Validation
                     </div>
                 </div>
                 <div class="section-card-body">
                     <p class="section-muted mb-3">
                         Verify allocation integrity and eligibility compliance.
                     </p>
-                    <a href="{% url 'validation_report' %}" class="btn btn-success w-100"
-                        style="border-radius: 6px; padding: 8px 16px;">
+                    <a href="{% url 'validation_report' %}" class="btn btn-primary w-100"
+                        style="border-radius: 6px; padding: 8px 16px; background: linear-gradient(135deg, #10b981 0%, #22c55e 100%); border: none;">
                         <i class="fas fa-arrow-right me-2"></i> Validate
                     </a>
                 </div>
@@ -658,7 +709,7 @@
                             {% if student.minor_time %}
                             <span class="submitted-time">
                                 <i class="far fa-clock me-1"></i>
-                                {{ student.minor_time|date:"d M Y, H:i" }}
+                                {{ student.minor_time|date:"d M Y, H:i:s" }}
                             </span>
                             {% endif %}
                         </td>
@@ -675,7 +726,7 @@
                             {% if student.oe_time %}
                             <span class="submitted-time">
                                 <i class="far fa-clock me-1"></i>
-                                {{ student.oe_time|date:"d M Y, H:i" }}
+                                {{ student.oe_time|date:"d M Y, H:i:s" }}
                             </span>
                             {% endif %}
                         </td>

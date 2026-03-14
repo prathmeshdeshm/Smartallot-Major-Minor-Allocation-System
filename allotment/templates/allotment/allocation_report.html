@@ -307,7 +307,7 @@
                             <span class="dept-badge">{{ student.department }}</span>
                         </td>
                         <td>
-                            <span class="percentage-col">{{ student.percentage }}%</span>
+                            <span class="percentage-col">{{ student.percentage|floatformat:2 }}%</span>
                         </td>
                         <td>
                             <span class="marks-col">{{ student.marks }}</span>

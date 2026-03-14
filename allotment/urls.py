@@ -84,5 +84,7 @@ urlpatterns = [
     path('dashboard/admin/absconding-students/<int:absconding_id>/', views.absconding_student_detail, name='absconding_student_detail'),
     path('dashboard/admin/absconding-students/<int:absconding_id>/register/', views.register_absconding_student, name='register_absconding_student'),
     path('dashboard/admin/absconding-students/<int:absconding_id>/delete/', views.delete_absconding_student, name='delete_absconding_student'),
+    path('dashboard/admin/absconding-students/delete-all-allocations/', views.delete_all_absconding_allocations, name='delete_all_absconding_allocations'),
+    path('dashboard/admin/absconding-students/bulk-delete/', views.bulk_delete_absconding_students, name='bulk_delete_absconding_students'),
     path('dashboard/admin/validate-capacity/', views.validate_capacity, name='validate_capacity'),
 ]

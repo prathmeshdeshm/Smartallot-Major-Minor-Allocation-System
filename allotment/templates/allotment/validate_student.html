@@ -253,20 +253,13 @@
                 <strong>Step 2 of 2:</strong> Provide your academic details
             </div>
 
-            <!-- Marks -->
+            <!-- Marks (READ-ONLY from imported data) -->
             <div class="form-group">
                 <label for="id_marks" class="form-label">
                     <i class="fas fa-calculator me-1"></i>Grand Total Marks
-                    <span style="color: #ef4444;">*</span>
                 </label>
-                {{ form.marks }}
-                <div class="field-help-text">Your total marks as per records</div>
-                {% if form.marks.errors %}
-                <div class="error-message" style="margin-top: 8px; padding: 8px;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    {{ form.marks.errors.0 }}
-                </div>
-                {% endif %}
+                <input type="text" id="id_marks" class="form-control" value="{{ student.marks }}" readonly disabled>
+                <div class="field-help-text">Your grand total marks from records (cannot be changed)</div>
             </div>
 
             <!-- Percentage -->

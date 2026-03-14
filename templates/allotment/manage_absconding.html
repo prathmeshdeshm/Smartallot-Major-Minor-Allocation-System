@@ -117,10 +117,22 @@
         </button>
         <button name="auto_allocate" value="1" class="btn btn-success btn-action" id="btn-auto-allocate"
             title="Generate random preferences and auto-allocate based on merit"
-            onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i>Allocating…'; this.form.submit();">
+            onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i>Allocating…'; var h=document.createElement('input'); h.type='hidden'; h.name='auto_allocate'; h.value='1'; this.form.appendChild(h); this.form.submit();">
             <i class="fas fa-magic me-2"></i>Auto Allocate Absconding Students
         </button>
     </form>
+
+    {% if allocated_absconding > 0 %}
+    <form method="post" action="{% url 'delete_all_absconding_allocations' %}" class="mb-4 d-inline-block"
+        id="delete-all-form">
+        {% csrf_token %}
+        <button type="button" class="btn btn-danger btn-action" id="btn-delete-all"
+            title="Delete all auto-allocated minor & OE allocations for absconding students"
+            onclick="if(confirm('Are you sure you want to delete ALL auto-allocated Minor and OE allocations for {{ allocated_absconding }} absconding student(s)?\n\nThis will:\n• Remove their Minor & OE allocations\n• Clear auto-generated preferences\n• Remove waitlist entries\n• Reset absconding records to Pending\n\nThis action cannot be undone.')) { this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-2\'></i>Deleting…'; document.getElementById(\'delete-all-form\').submit(); }">
+            <i class="fas fa-trash-alt me-2"></i>Delete All Absconding Allocations ({{ allocated_absconding }})
+        </button>
+    </form>
+    {% endif %}
 
     <!-- ============================================================ -->
     <!-- ALLOCATION RESULT SUMMARY (shown after auto_allocate POST)   -->
@@ -247,62 +259,143 @@
         </div>
     </div>
 
-    <!-- Data Table -->
-    <div class="table-wrapper">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Full Name</th>
-                    <th>Roll Number</th>
-                    <th>Major Branch</th>
-                    <th>Marks</th>
-                    <th>Allocated Minor</th>
-                    <th>Allocated OE</th>
-                    <th>Status</th>
-                    <th>Identified At</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for rec in absconding_students %}
-                <tr>
-                    <td><strong>{{ rec.imported_student.full_name }}</strong></td>
-                    <td><code>{{ rec.imported_student.roll_no }}</code></td>
-                    <td>{{ rec.imported_student.get_major_branch_display }}</td>
-                    <td><span style="font-weight:600; color:#0066cc;">{{ rec.imported_student.marks }}</span></td>
-                    <td>
-                        {% if rec.allocated_minor %}
-                        <span class="badge bg-primary">{{ rec.allocated_minor.name }}</span>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if rec.allocated_oe %}
-                        <span class="badge bg-info">{{ rec.allocated_oe.name }}</span>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if rec.auto_allocated %}
-                        <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Allocated</span>
-                        {% else %}
-                        <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
-                        {% endif %}
-                    </td>
-                    <td><small class="text-muted">{{ rec.identified_at|date:"d M Y, H:i" }}</small></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="text-center py-4">
-                        <i class="fas fa-check-circle fa-2x text-success mb-3" style="display: block;"></i>
-                        <p class="text-muted mb-0"><strong>No absconding students!</strong></p>
-                        <p class="text-muted mb-0">All students have submitted their preferences.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <!-- Data Table with Bulk Selection -->
+    <form method="post" action="{% url 'bulk_delete_absconding_students' %}" id="bulk-delete-form">
+        {% csrf_token %}
+
+        <!-- Bulk Action Bar (hidden until selection) -->
+        <div id="bulk-action-bar" class="mb-3 p-3 bg-danger bg-opacity-10 border border-danger rounded d-flex align-items-center justify-content-between" style="display: none !important;">
+            <div>
+                <i class="fas fa-check-square text-danger me-2"></i>
+                <strong id="selected-count">0</strong> student(s) selected
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="toggleSelectAll(false)">
+                    <i class="fas fa-times me-1"></i>Clear Selection
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-bulk-delete"
+                    onclick="confirmBulkDelete()">
+                    <i class="fas fa-trash-alt me-1"></i>Delete Selected
+                </button>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="select-all-checkbox" class="form-check-input"
+                                title="Select All" onclick="toggleSelectAll(this.checked)">
+                        </th>
+                        <th>Roll Number</th>
+                        <th>Full Name</th>
+                        <th>Department</th>
+                        <th>Grand Total Marks</th>
+                        <th>Allocated Minor</th>
+                        <th>Allocated OE</th>
+                        <th>Status</th>
+                        <th>Identified At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rec in absconding_students %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="selected_absconding" value="{{ rec.id }}"
+                                class="form-check-input row-checkbox" onchange="updateBulkBar()">
+                        </td>
+                        <td><code>{{ rec.imported_student.roll_no }}</code></td>
+                        <td><strong>{{ rec.imported_student.full_name }}</strong>
+                            <span class="badge bg-warning text-dark ms-1" style="font-size:0.65em;">ABSCONDING</span>
+                        </td>
+                        <td><span class="badge bg-info">{{ rec.imported_student.get_major_branch_display }}</span></td>
+                        <td><span style="font-weight:600; color:#0066cc;">{{ rec.imported_student.marks }} marks</span></td>
+                        <td>
+                            {% if rec.allocated_minor %}
+                            <span class="badge bg-primary">{{ rec.allocated_minor.name }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if rec.allocated_oe %}
+                            <span class="badge bg-success">{{ rec.allocated_oe.name }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if rec.auto_allocated %}
+                            <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Auto-Allocated</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
+                            {% endif %}
+                        </td>
+                        <td><small class="text-muted">{{ rec.identified_at|date:"d M Y, H:i" }}</small></td>
+                        <td>
+                            <a href="{% url 'absconding_student_detail' rec.id %}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-1" title="Delete"
+                                onclick="if(confirm('Delete absconding record for {{ rec.imported_student.full_name }}?')) { var f=document.createElement('form'); f.method='POST'; f.action='{% url 'delete_absconding_student' rec.id %}'; var c=document.createElement('input'); c.type='hidden'; c.name='csrfmiddlewaretoken'; c.value='{{ csrf_token }}'; f.appendChild(c); document.body.appendChild(f); f.submit(); }">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center py-4">
+                            <i class="fas fa-check-circle fa-2x text-success mb-3" style="display: block;"></i>
+                            <p class="text-muted mb-0"><strong>No absconding students!</strong></p>
+                            <p class="text-muted mb-0">All students have submitted their preferences.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
 </div>
+
+<script>
+function toggleSelectAll(checked) {
+    document.querySelectorAll('.row-checkbox').forEach(function(cb) {
+        cb.checked = checked;
+    });
+    document.getElementById('select-all-checkbox').checked = checked;
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    var checked = document.querySelectorAll('.row-checkbox:checked').length;
+    var bar = document.getElementById('bulk-action-bar');
+    var countEl = document.getElementById('selected-count');
+    countEl.textContent = checked;
+    if (checked > 0) {
+        bar.style.cssText = 'display: flex !important;';
+    } else {
+        bar.style.cssText = 'display: none !important;';
+        document.getElementById('select-all-checkbox').checked = false;
+    }
+    // Update select-all checkbox state
+    var total = document.querySelectorAll('.row-checkbox').length;
+    document.getElementById('select-all-checkbox').checked = (checked === total && total > 0);
+}
+
+function confirmBulkDelete() {
+    var count = document.querySelectorAll('.row-checkbox:checked').length;
+    if (count === 0) {
+        alert('No students selected.');
+        return;
+    }
+    if (confirm('Are you sure you want to delete ' + count + ' absconding student record(s)?\n\nThis will:\n• Remove their absconding records\n• Delete their Minor & OE allocations\n• Clear auto-generated preferences\n• Remove waitlist entries\n\nThis action cannot be undone.')) {
+        var btn = document.getElementById('btn-bulk-delete');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting…';
+        document.getElementById('bulk-delete-form').submit();
+    }
+}
+</script>
 {% endblock %}

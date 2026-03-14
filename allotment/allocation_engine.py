@@ -16,13 +16,15 @@ Date: 2026-02-16
 from django.db import transaction
 from django.utils import timezone
 from django.db.models import Prefetch, Q, F
+from django.db.models.functions import Coalesce
 import logging
 from decimal import Decimal
 from datetime import datetime
 
 from allotment.models import (
     Student, MinorAllocation, OEAllocation, MinorPreference, 
-    OEPreference, MinorBranch, OpenElective, AuditLog, WaitlistEntry
+    OEPreference, MinorBranch, OpenElective, AuditLog, WaitlistEntry,
+    PreferenceSubmission
 )
 
 logger = logging.getLogger(__name__)
@@ -85,13 +87,21 @@ class AllocationEngine:
             ).select_related(self.branch_model.__name__.lower()).order_by('preference_order')
         )
         
+        submission_field = (
+            'preference_submission__minor_submitted_at'
+            if self.allocation_type == 'minor'
+            else 'preference_submission__oe_submitted_at'
+        )
+
         # Get validated students, sorted by merit
         students = Student.objects.filter(
             is_validated=True,
             academic_status__in=['CLEAR', 'CLEARED_AFTER_REASSESSMENT']
-        ).select_related('user').prefetch_related(preference_prefetch).order_by(
+        ).select_related('user', 'preference_submission').prefetch_related(preference_prefetch).annotate(
+            submission_rank=Coalesce(submission_field, 'preference_submission__submitted_at')
+        ).order_by(
             '-marks',  # Highest marks first (PHASE 1: PRIMARY SORT)
-            'validated_at',  # Earlier submission first (PHASE 1: TIE-BREAKER 1)
+            'submission_rank',  # Earlier preference submission first (PHASE 1: TIE-BREAKER 1)
             'roll_no'  # Roll number ascending (PHASE 1: TIE-BREAKER 2)
         )
         

@@ -90,7 +90,11 @@ class ImportedStudent(models.Model):
     roll_no = models.CharField(max_length=50)
     marks = models.FloatField()
     percentage = models.FloatField()
-    major_branch = models.CharField(max_length=50, choices=Student.DEPARTMENTS)
+    major_branch = models.CharField(
+        max_length=50,
+        choices=Student.DEPARTMENTS + [('GENERAL', 'General / Not Specified')],
+        default='GENERAL'
+    )
     
     class Meta:
         unique_together = ('import_batch', 'roll_no')
@@ -105,12 +109,14 @@ class PreferenceSubmission(models.Model):
     """Track when students submit their preferences with server-side timestamp"""
     student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name='preference_submission')
     submitted_at = models.DateTimeField(auto_now_add=True)  # Server-side, immutable
+    minor_submitted_at = models.DateTimeField(null=True, blank=True)
+    oe_submitted_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         ordering = ['-submitted_at']
     
     def __str__(self):
-        return f"{self.student.name} submitted at {self.submitted_at}"
+        return f"{self.student.name} submitted preferences"
 
 
 # NEW: Absconding Students Tracking
@@ -212,10 +218,10 @@ class MinorPreference(models.Model):
             raise ValidationError({'minor_branch': 'CSE students cannot select IT as minor'})
     
     def save(self, *args, **kwargs):
-        # ✅ FIX 10: Enforce preference window deadline
+        # ✅ FIX 10: Enforce preference window deadline for MINOR preferences
         if not kwargs.pop('skip_window_check', False):
-            if not PreferenceWindow.is_open():
-                raise ValidationError('Preference window is closed. Cannot save preferences.')
+            if not PreferenceWindow.is_open(preference_type='minor'):
+                raise ValidationError('Minor preference window is closed. Cannot save preferences.')
         self.full_clean()
         super().save(*args, **kwargs)
     
@@ -258,10 +264,10 @@ class DoubleMinorPreference(models.Model):
             raise ValidationError({'minor_branch': 'CSE students cannot select IT as minor'})
     
     def save(self, *args, **kwargs):
-        #  FIX 10: Enforce preference window deadline
+        #  FIX 10: Enforce preference window deadline for DOUBLE MINOR preferences
         if not kwargs.pop('skip_window_check', False):
-            if not PreferenceWindow.is_open():
-                raise ValidationError('Preference window is closed. Cannot save preferences.')
+            if not PreferenceWindow.is_open(preference_type='minor'):
+                raise ValidationError('Minor preference window is closed. Cannot save preferences.')
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -298,10 +304,10 @@ class OEPreference(models.Model):
             raise ValidationError({'oe_subject': 'You have already selected this Open Elective'})
     
     def save(self, *args, **kwargs):
-        #  FIX 10: Enforce preference window deadline
+        #  FIX 10: Enforce preference window deadline for OE preferences
         if not kwargs.pop('skip_window_check', False):
-            if not PreferenceWindow.is_open():
-                raise ValidationError('Preference window is closed. Cannot save preferences.')
+            if not PreferenceWindow.is_open(preference_type='oe'):
+                raise ValidationError('Open Elective preference window is closed. Cannot save preferences.')
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -442,33 +448,81 @@ class OEEligibilityRule(models.Model):
 class PreferenceWindow(models.Model):
     """
     Controls when students can submit / edit their preferences.
-    Only the latest active window is considered.
+    Separate windows for minor and OE allocations.
     """
-    name = models.CharField(max_length=100, default="Main Preference Window")
+    PREFERENCE_TYPES = [
+        ('minor', 'Minor Branch Preferences'),
+        ('oe', 'Open Elective Preferences'),
+    ]
+    
+    preference_type = models.CharField(
+        max_length=10,
+        choices=PREFERENCE_TYPES,
+        default='minor',
+        help_text="Type of preferences this window applies to"
+    )
+    name = models.CharField(max_length=100)
     start_at = models.DateTimeField()
     end_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     
     @classmethod
-    def is_open(cls):
-        """✅ FIX 10: Helper to check if preference window is currently open"""
+    def is_open(cls, preference_type='minor'):
+        """✅ Check if preference window is currently open for given type"""
         now = timezone.now()
         return cls.objects.filter(
+            preference_type=preference_type,
             is_active=True,
             start_at__lte=now,
             end_at__gte=now
         ).exists()
     
+    @classmethod
+    def get_open_window(cls, preference_type='minor'):
+        """Get the currently open window for a preference type"""
+        now = timezone.now()
+        return cls.objects.filter(
+            preference_type=preference_type,
+            is_active=True,
+            start_at__lte=now,
+            end_at__gte=now
+        ).first()
+    
     def clean(self):
         # ✅ FIX 10: Validate window dates
         if self.end_at <= self.start_at:
             raise ValidationError({'end_at': 'End time must be after start time'})
+        
+        # Check for overlapping windows of same type
+        overlapping = PreferenceWindow.objects.filter(
+            preference_type=self.preference_type,
+            is_active=True,
+            start_at__lt=self.end_at,
+            end_at__gt=self.start_at
+        ).exclude(pk=self.pk)
+        
+        if overlapping.exists():
+            raise ValidationError(
+                {'preference_type': f'An active window already exists for {self.get_preference_type_display()}'}
+            )
 
     class Meta:
-        ordering = ['-start_at']
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['preference_type', 'is_active']),
+            models.Index(fields=['preference_type', 'start_at', 'end_at']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['preference_type'],
+                condition=models.Q(is_active=True),
+                name='unique_active_preference_window_per_type'
+            )
+        ]
 
     def __str__(self):
-        return f"{self.name} ({self.start_at} → {self.end_at})"
+        return f"{self.get_preference_type_display()} - {self.name} ({self.start_at.strftime('%Y-%m-%d %H:%M')} → {self.end_at.strftime('%Y-%m-%d %H:%M')})"
 
     @property
     def is_open_now(self):

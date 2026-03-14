@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
+from django.views.decorators.http import require_http_methods
 
 import random
 import string
@@ -98,22 +99,29 @@ def student_login(request):
                 defaults={
                     'user': user,
                     'name': imported_student.full_name,
-                    'department': imported_student.major_branch,
-                    'marks': imported_student.marks,
-                    'percentage': imported_student.percentage,
+                    'department': imported_student.major_branch if imported_student.major_branch != 'GENERAL' else 'CSE',
+                    'marks': imported_student.marks if imported_student.marks is not None else 0,
+                    'percentage': imported_student.percentage if imported_student.percentage is not None else 0,
                     'is_validated': False,
                     'email': f"{roll_no}@student.edu"
                 }
             )
             
-            # Update existing student data if needed
+            # Update existing student data — but only overwrite with valid imported data
+            # Don't overwrite good data from auto-allocation with None/GENERAL
             if not created:
                 student.user = user
                 student.name = imported_student.full_name
-                student.department = imported_student.major_branch
-                student.marks = imported_student.marks
-                student.percentage = imported_student.percentage
-                student.email = f"{roll_no}@student.edu"
+                # Only update department if imported value is valid (not GENERAL)
+                if imported_student.major_branch and imported_student.major_branch != 'GENERAL':
+                    student.department = imported_student.major_branch
+                # Only update marks/percentage if imported values are meaningful
+                if imported_student.marks is not None and imported_student.marks > 0:
+                    student.marks = imported_student.marks
+                if imported_student.percentage is not None and imported_student.percentage > 0:
+                    student.percentage = imported_student.percentage
+                if not student.email or student.email.endswith('@student.edu'):
+                    student.email = f"{roll_no}@student.edu"
                 student.save()
             
             # Store validated student in session
@@ -166,10 +174,12 @@ def admin_login(request):
 # -------------------------
 # Logout
 # -------------------------
+@require_http_methods(["GET", "POST"])
 def logout_view(request):
     """
     Logs the user out and redirects to the home page.
     Handles both session-based student login and Django auth login.
+    Accepts both GET and POST because some templates use logout links.
     """
     # Clear student session if exists
     if 'validated_student_id' in request.session:

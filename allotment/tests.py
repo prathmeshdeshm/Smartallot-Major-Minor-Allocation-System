@@ -13,10 +13,18 @@ from .utils import run_minor1_allocation, run_minor2_allocation, run_oe_allocati
 
 class AllocationLogicTests(TestCase):
 	def setUp(self):
-		# Ensure preference window is open for saving preferences
+		# Ensure separate preference windows are open for saving preferences
 		now = timezone.now()
 		PreferenceWindow.objects.create(
-			name="Test Window",
+			preference_type='minor',
+			name="Minor Test Window",
+			start_at=now - timezone.timedelta(days=1),
+			end_at=now + timezone.timedelta(days=1),
+			is_active=True,
+		)
+		PreferenceWindow.objects.create(
+			preference_type='oe',
+			name="OE Test Window",
 			start_at=now - timezone.timedelta(days=1),
 			end_at=now + timezone.timedelta(days=1),
 			is_active=True,
@@ -27,17 +35,47 @@ class AllocationLogicTests(TestCase):
 		self.u2 = User.objects.create_user(username='s2')
 		self.u3 = User.objects.create_user(username='s3')
 
-		self.s1 = Student.objects.create(user=self.u1, name='Alice', roll_no='R1', department='CSE', percentage=90, email='a@example.com')
-		self.s2 = Student.objects.create(user=self.u2, name='Bob', roll_no='R2', department='IT', percentage=85, email='b@example.com')
-		self.s3 = Student.objects.create(user=self.u3, name='Cara', roll_no='R3', department='ECE', percentage=70, email='c@example.com')
+		self.s1 = Student.objects.create(
+			user=self.u1,
+			name='Alice',
+			roll_no='R1',
+			department='CSE',
+			percentage=90,
+			marks=90,
+			email='a@example.com',
+			is_validated=True,
+			academic_status='CLEAR',
+		)
+		self.s2 = Student.objects.create(
+			user=self.u2,
+			name='Bob',
+			roll_no='R2',
+			department='IT',
+			percentage=85,
+			marks=85,
+			email='b@example.com',
+			is_validated=True,
+			academic_status='CLEAR',
+		)
+		self.s3 = Student.objects.create(
+			user=self.u3,
+			name='Cara',
+			roll_no='R3',
+			department='ECE',
+			percentage=70,
+			marks=70,
+			email='c@example.com',
+			is_validated=True,
+			academic_status='CLEAR',
+		)
 
 		# Create minor branches
-		self.mb1 = MinorBranch.objects.create(name='AI', capacity=1, offering_dept='CSE')
-		self.mb2 = MinorBranch.objects.create(name='IOT', capacity=2, offering_dept='ECE')
+		self.mb1 = MinorBranch.objects.create(name='AI', capacity=1, offering_dept='MECH')
+		self.mb2 = MinorBranch.objects.create(name='IOT', capacity=2, offering_dept='EEE')
 
 		# Create open electives
-		self.oe1 = OpenElective.objects.create(name='Data Mining', capacity=1, offering_dept='CSE')
-		self.oe2 = OpenElective.objects.create(name='AR-VR', capacity=2, offering_dept='IT')
+		self.oe1 = OpenElective.objects.create(name='Data Mining', capacity=1, offering_dept='MECH')
+		self.oe2 = OpenElective.objects.create(name='AR-VR', capacity=2, offering_dept='EEE')
 
 	def test_minor1_merit_and_preference(self):
 		"""Higher percentage student gets limited capacity branch by priority."""

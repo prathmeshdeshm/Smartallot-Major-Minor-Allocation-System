@@ -34,18 +34,8 @@ class StudentValidationForm(forms.Form):
 
 # ======================== STUDENT DATA COLLECTION FORM (STEP 2) ========================
 class StudentDataCollectionForm(forms.Form):
-    """Step 2: Collect percentage, marks, email, and branch after validation"""
-    marks = forms.DecimalField(
-        label='Grand Total Marks',
-        decimal_places=2,
-        required=True,
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Your total marks',
-            'step': '0.01',
-            'min': '0'
-        })
-    )
+    """Step 2: Collect percentage, email, and branch after validation.
+    Grand total marks are read-only and cannot be changed by students."""
     
     percentage = forms.DecimalField(
         label='Percentage (%)',
@@ -167,8 +157,11 @@ class AnnouncementForm(forms.ModelForm):
 class PreferenceWindowForm(forms.ModelForm):
     class Meta:
         model = PreferenceWindow
-        fields = ['name', 'start_at', 'end_at', 'is_active']
+        fields = ['preference_type', 'name', 'start_at', 'end_at', 'is_active']
         widgets = {
+            'preference_type': forms.Select(attrs={
+                'class': 'form-control'
+            }),
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Window name'
