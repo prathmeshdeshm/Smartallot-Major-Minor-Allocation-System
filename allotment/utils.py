@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils import timezone
 import openpyxl
+import re
 from .models import (
     Student, MinorBranch, OpenElective,
     MinorPreference, DoubleMinorPreference, OEPreference,
@@ -16,7 +17,7 @@ from .models import (
     StudentValidationLog,  # NEW: Validation log
     WaitlistEntry,  # For absconding allocation waitlisting
 )
-from django.db.models import Min, Count
+from django.db.models import Min, Count, Q
 
 
 # ======================== STUDENT VALIDATION LOGIC ========================
@@ -64,6 +65,45 @@ def log_validation_attempt(student, success, reason=None):
         print(f"Failed to log validation attempt: {str(e)}")
 
 
+def calculate_percentage_from_marks(marks, fallback_percentage=None, max_marks=600.0):
+    """
+    Derive percentage from grand total marks.
+
+    Rules:
+    - If marks <= 100, treat marks as already percentage-like.
+    - If marks is between 100 and max_marks, compute (marks / max_marks) * 100.
+    - If marks is unavailable, fall back to fallback_percentage.
+    """
+
+    def _to_float(value):
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    marks_value = _to_float(marks)
+    fallback_value = _to_float(fallback_percentage)
+
+    if marks_value is None or marks_value < 0:
+        if fallback_value is not None:
+            return round(max(0.0, min(fallback_value, 100.0)), 2)
+        return 0.0
+
+    if marks_value <= 100:
+        return round(max(0.0, min(marks_value, 100.0)), 2)
+
+    if max_marks and marks_value <= max_marks:
+        return round((marks_value / max_marks) * 100, 2)
+
+    if fallback_value is not None:
+        return round(max(0.0, min(fallback_value, 100.0)), 2)
+
+    derived = (marks_value / max_marks) * 100 if max_marks else marks_value
+    return round(max(0.0, min(derived, 100.0)), 2)
+
+
 def complete_student_validation(student, email, percentage, branch, marks=None):
     """
     Mark student as validated and update email, percentage, and major_branch (department) fields.
@@ -74,10 +114,15 @@ def complete_student_validation(student, email, percentage, branch, marks=None):
     """
     try:
         with transaction.atomic():
+            calculated_percentage = calculate_percentage_from_marks(
+                marks if marks is not None else student.marks,
+                fallback_percentage=percentage,
+            )
+
             student.is_validated = True
             student.validated_at = timezone.now()
             student.email = email  # Update email after validation
-            student.percentage = round(float(percentage), 2)  # Update percentage (max 2 decimal places)
+            student.percentage = calculated_percentage
             # Grand total marks are NOT updated — kept as imported
             student.department = branch  # Update major_branch (department)
             student.save()
@@ -657,6 +702,157 @@ def _normalize_branch(raw_value):
     return BRANCH_NAME_MAP.get(cleaned.lower(), 'GENERAL')
 
 
+def _roll_number_variants(raw_roll):
+    """Build normalized roll-number candidates for matching across formats.
+
+    Handles Excel numeric rolls like 2023001.0 and strips spaces.
+    """
+    if raw_roll is None:
+        return []
+
+    candidates = set()
+
+    if isinstance(raw_roll, int):
+        candidates.add(str(raw_roll))
+    elif isinstance(raw_roll, float):
+        if raw_roll.is_integer():
+            candidates.add(str(int(raw_roll)))
+        candidates.add(str(raw_roll))
+
+    raw_text = str(raw_roll).strip()
+    if raw_text:
+        candidates.add(raw_text)
+
+    normalized = []
+    for candidate in candidates:
+        cleaned = str(candidate).strip().replace(' ', '')
+        if not cleaned:
+            continue
+
+        upper_cleaned = cleaned.upper()
+        normalized.append(upper_cleaned)
+
+        match = re.match(r'^([0-9]+)\.0+$', upper_cleaned)
+        if match:
+            normalized.append(match.group(1))
+
+    unique = []
+    seen = set()
+    for value in normalized:
+        if value and value not in seen:
+            seen.add(value)
+            unique.append(value)
+
+    return unique
+
+
+def _normalize_roll_no(raw_roll):
+    """Return canonical roll number string from raw Excel value."""
+    variants = _roll_number_variants(raw_roll)
+    if not variants:
+        return ''
+
+    # Prefer the shortest normalized form (e.g., 2023001 over 2023001.0)
+    return min(variants, key=len)
+
+
+def _build_roll_query(raw_roll):
+    """Build a Q object to match a roll number across normalized variants."""
+    roll_variants = _roll_number_variants(raw_roll)
+    if not roll_variants:
+        return None
+
+    roll_query = Q(roll_no__iexact=roll_variants[0])
+    for variant in roll_variants[1:]:
+        roll_query |= Q(roll_no__iexact=variant)
+    return roll_query
+
+
+def sync_existing_student_departments(import_batch):
+    """Update existing Student.department values from imported major_branch codes.
+
+    This keeps department/major branch in Student records aligned with the latest
+    uploaded import data for matching roll numbers.
+    """
+    updated_count = 0
+    imported_rows = ImportedStudent.objects.filter(
+        import_batch=import_batch
+    ).exclude(
+        major_branch__isnull=True
+    ).exclude(
+        major_branch='GENERAL'
+    )
+
+    for imported in imported_rows.iterator():
+        roll_query = _build_roll_query(imported.roll_no)
+        if roll_query is None:
+            continue
+
+        updated_count += Student.objects.filter(roll_query).exclude(
+            department=imported.major_branch
+        ).update(department=imported.major_branch)
+
+    return updated_count
+
+
+def sync_imported_major_branches(import_batch):
+    """Update major_branch for same-roll imported records across all batches.
+
+    This ensures all imported-record modules show the latest known major branch.
+    """
+    updated_count = 0
+    imported_rows = ImportedStudent.objects.filter(
+        import_batch=import_batch
+    ).exclude(
+        major_branch__isnull=True
+    ).exclude(
+        major_branch='GENERAL'
+    )
+
+    for imported in imported_rows.iterator():
+        roll_query = _build_roll_query(imported.roll_no)
+        if roll_query is None:
+            continue
+
+        updated_count += ImportedStudent.objects.filter(roll_query).exclude(
+            major_branch=imported.major_branch
+        ).update(major_branch=imported.major_branch)
+
+    return updated_count
+
+
+def deduplicate_imported_students_by_roll():
+    """Keep only the latest ImportedStudent row per roll number.
+
+    Returns number of duplicate rows deleted.
+    """
+    delete_ids = []
+    seen_rolls = {}
+
+    rows = ImportedStudent.objects.select_related('import_batch').order_by(
+        '-import_batch__imported_at', '-id'
+    )
+
+    for row in rows.iterator():
+        normalized_roll = _normalize_roll_no(row.roll_no)
+        if not normalized_roll:
+            continue
+
+        if row.roll_no != normalized_roll:
+            row.roll_no = normalized_roll
+            row.save(update_fields=['roll_no'])
+
+        if normalized_roll in seen_rolls:
+            delete_ids.append(row.id)
+        else:
+            seen_rolls[normalized_roll] = row.id
+
+    if delete_ids:
+        ImportedStudent.objects.filter(id__in=delete_ids).delete()
+
+    return len(delete_ids)
+
+
 def import_students_from_excel(file_obj, admin_user):
     """
     Import student records from Excel file.
@@ -664,7 +860,7 @@ def import_students_from_excel(file_obj, admin_user):
     Optional column: Branch / Department (auto-detected).
     We scan the header rows to locate these columns by name (case-insensitive).
     If headers are not found, we fall back to common positions (B, C, V).
-    Returns: (StudentImport object, error_messages list)
+    Returns: (StudentImport object, error_messages list, synced_students_count)
     """
     import openpyxl
     from numbers import Number
@@ -733,6 +929,22 @@ def import_students_from_excel(file_obj, admin_user):
         # branch_col stays None if no branch column found (will default to GENERAL)
         header_row_index = header_row_index if header_row_index is not None else 3
 
+        # If the whole file clearly indicates one branch (e.g., all rows are CSE),
+        # use it as fallback for rows with missing/invalid branch values.
+        default_branch_code = None
+        if branch_col is not None:
+            detected_codes = []
+            for row in rows_cache[header_row_index:]:
+                if not row or len(row) <= branch_col:
+                    continue
+                code = _normalize_branch(row[branch_col])
+                if code != 'GENERAL':
+                    detected_codes.append(code)
+
+            unique_codes = set(detected_codes)
+            if len(unique_codes) == 1:
+                default_branch_code = next(iter(unique_codes))
+
         for row_idx, row in enumerate(rows_cache, start=1):
             # Skip header rows
             if row_idx <= header_row_index:
@@ -749,7 +961,7 @@ def import_students_from_excel(file_obj, admin_user):
                 marks = row[gt_col] if len(row) > gt_col else None
                 
                 # Validate required fields
-                if not full_name or not roll_no or marks is None:
+                if not full_name or roll_no is None or marks is None:
                     # If marks missing, try computing from subject totals (Th/Int totals columns: F, I, L, O, R, U)
                     total_indexes = [5, 8, 11, 14, 17, 20]
                     totals = []
@@ -762,7 +974,7 @@ def import_students_from_excel(file_obj, admin_user):
                         continue  # Still missing required fields
                 
                 # Convert to strings and clean up
-                roll_no_str = str(roll_no).strip()
+                roll_no_str = _normalize_roll_no(roll_no)
                 full_name_str = str(full_name).strip()
                 
                 # Skip if roll number or name is empty after cleaning
@@ -770,7 +982,7 @@ def import_students_from_excel(file_obj, admin_user):
                     continue
                 
                 # Skip if roll_no contains header text
-                if 'roll' in roll_no_str.lower():
+                if 'ROLL' in roll_no_str.upper():
                     continue
                     
                 # Check for duplicate roll numbers
@@ -799,16 +1011,35 @@ def import_students_from_excel(file_obj, admin_user):
                 if branch_col is not None and len(row) > branch_col:
                     raw_branch = row[branch_col]
                 branch_code = _normalize_branch(raw_branch)
+                if branch_code == 'GENERAL' and default_branch_code:
+                    branch_code = default_branch_code
                 
-                # Store in ImportedStudent
-                ImportedStudent.objects.create(
-                    import_batch=import_batch,
-                    full_name=full_name_str,
-                    roll_no=roll_no_str,
-                    marks=marks,
-                    percentage=0,
-                    major_branch=branch_code
-                )
+                # Upsert globally by roll number so repeated imports update, not duplicate.
+                roll_query = _build_roll_query(roll_no_str)
+                existing = ImportedStudent.objects.filter(roll_query).order_by(
+                    '-import_batch__imported_at', '-id'
+                ).first() if roll_query is not None else None
+
+                if existing:
+                    existing.import_batch = import_batch
+                    existing.full_name = full_name_str
+                    existing.roll_no = roll_no_str
+                    existing.marks = marks
+                    existing.percentage = 0
+                    existing.major_branch = branch_code
+                    existing.save(update_fields=[
+                        'import_batch', 'full_name', 'roll_no',
+                        'marks', 'percentage', 'major_branch'
+                    ])
+                else:
+                    ImportedStudent.objects.create(
+                        import_batch=import_batch,
+                        full_name=full_name_str,
+                        roll_no=roll_no_str,
+                        marks=marks,
+                        percentage=0,
+                        major_branch=branch_code
+                    )
                 successful += 1
                 
             except Exception as e:
@@ -822,17 +1053,28 @@ def import_students_from_excel(file_obj, admin_user):
         import_batch.failed_records = failed
         import_batch.save()
         
+        # Sync existing Student rows so department reflects latest imported major branch.
+        synced_students = sync_existing_student_departments(import_batch)
+        synced_imported_records = sync_imported_major_branches(import_batch)
+        deleted_duplicates = deduplicate_imported_students_by_roll()
+
         # Log import
         AuditLog.objects.create(
             user=admin_user,
             action='bulk_import',
-            description=f'Imported {successful} student records from Excel. {failed} failed. Students can verify using name + roll number.'
+            description=(
+                f'Imported {successful} student records from Excel. {failed} failed. '
+                f'Updated department for {synced_students} existing student record(s). '
+                f'Updated major branch for {synced_imported_records} imported record(s). '
+                f'Removed {deleted_duplicates} duplicate imported row(s). '
+                'Students can verify using name + roll number.'
+            )
         )
         
-        return import_batch, errors
+        return import_batch, errors, synced_students
         
     except Exception as e:
-        return None, [f"Error reading Excel file: {str(e)}"]
+        return None, [f"Error reading Excel file: {str(e)}"], 0
 
 
 def validate_student(full_name, roll_no):
@@ -840,20 +1082,22 @@ def validate_student(full_name, roll_no):
     Validate student against imported records.
     Returns: (is_valid, message)
     """
-    # Get latest successful import
-    latest_import = StudentImport.objects.filter(
-        successful_records__gt=0
-    ).order_by('-imported_at').first()
-    
-    if not latest_import:
+    if not ImportedStudent.objects.exists():
         return False, "No student data has been imported yet"
     
     try:
-        imported = ImportedStudent.objects.get(
-            import_batch=latest_import,
+        query = ImportedStudent.objects.filter(
             full_name__iexact=full_name.strip(),
-            roll_no__iexact=roll_no.strip()
         )
+
+        roll_query = _build_roll_query(roll_no.strip())
+        if roll_query is not None:
+            query = query.filter(roll_query)
+
+        imported = query.select_related('import_batch').order_by('-import_batch__imported_at', '-id').first()
+        if not imported:
+            raise ImportedStudent.DoesNotExist
+
         return True, f"Student validated: {imported.full_name}"
     except ImportedStudent.DoesNotExist:
         return False, "Student not found in imported records"
@@ -906,15 +1150,11 @@ def identify_absconding_students():
     now = timezone.now()
     is_past_deadline = now >= window.end_at
     
-    # Get all imported students
-    latest_import = StudentImport.objects.filter(
-        successful_records__gt=0
-    ).order_by('-imported_at').first()
-    
-    if not latest_import:
+    # Get all imported students (global latest state, one row per roll after dedupe)
+    imported_students = ImportedStudent.objects.all()
+
+    if not imported_students.exists():
         return 0, "No imported student data found"
-    
-    imported_students = ImportedStudent.objects.filter(import_batch=latest_import)
     
     # Clear old absconding records to recalculate
     AbscondingStudent.objects.filter(auto_allocated=False).delete()
@@ -1355,10 +1595,13 @@ def import_student_results_from_excel(file_obj, admin_user):
         successful = 0
         failed = 0
         seen_rolls = set()
+        synced_departments = 0
         
         # Detect column indexes by scanning headers
         roll_col = None
         name_col = None
+        branch_col = None
+        header_row_index = None
         
         rows_cache = list(ws.iter_rows(values_only=True))
         
@@ -1367,6 +1610,10 @@ def import_student_results_from_excel(file_obj, admin_user):
             if not row:
                 continue
             lowered = [str(cell).lower() if cell is not None else '' for cell in row]
+
+            if header_row_index is None:
+                if any('roll' in c for c in lowered) and any('name' in c for c in lowered):
+                    header_row_index = idx
             
             if roll_col is None:
                 for i, c in enumerate(lowered):
@@ -1379,11 +1626,17 @@ def import_student_results_from_excel(file_obj, admin_user):
                     if 'name' in c and 'student' in c:
                         name_col = i
                         break
+
+            if branch_col is None:
+                for i, c in enumerate(lowered):
+                    if 'branch' in c or 'department' in c or 'dept' in c:
+                        branch_col = i
+                        break
         
         # If not found, use fallback positions
         roll_col = roll_col if roll_col is not None else 1
         name_col = name_col if name_col is not None else 2
-        header_row_index = 3
+        header_row_index = header_row_index if header_row_index is not None else 3
         
         # Process data rows (starting from row after headers)
         for row_idx, row in enumerate(rows_cache, start=1):
@@ -1464,6 +1717,23 @@ def import_student_results_from_excel(file_obj, admin_user):
                     roll_no=roll_no_str,
                     defaults=data
                 )
+
+                # Optional branch propagation for files that include branch/department.
+                raw_branch = None
+                if branch_col is not None and len(row) > branch_col:
+                    raw_branch = row[branch_col]
+
+                branch_code = _normalize_branch(raw_branch)
+                if branch_code != 'GENERAL':
+                    roll_query = _build_roll_query(roll_no_str)
+                    if roll_query is not None:
+                        synced_departments += Student.objects.filter(roll_query).exclude(
+                            department=branch_code
+                        ).update(department=branch_code)
+                        ImportedStudent.objects.filter(roll_query).exclude(
+                            major_branch=branch_code
+                        ).update(major_branch=branch_code)
+
                 successful += 1
                 
             except Exception as e:
@@ -1475,7 +1745,10 @@ def import_student_results_from_excel(file_obj, admin_user):
         AuditLog.objects.create(
             user=admin_user,
             action='results_bulk_import',
-            description=f'Imported {successful} student results from Excel. {failed} failed.'
+            description=(
+                f'Imported {successful} student results from Excel. {failed} failed. '
+                f'Updated department for {synced_departments} student record(s) from branch column.'
+            )
         )
         
         return successful, failed, errors

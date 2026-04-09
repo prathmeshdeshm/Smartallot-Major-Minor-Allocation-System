@@ -7,6 +7,9 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from django.views.decorators.http import require_http_methods
+from django.db.models import Q
+import logging
+import re
 
 import random
 import string
@@ -17,6 +20,48 @@ from .forms import (
     OTPPasswordResetForm,
 )
 from allotment.models import Student, ImportedStudent
+from allotment.utils import calculate_percentage_from_marks
+
+
+logger = logging.getLogger(__name__)
+
+
+def _roll_number_variants(raw_roll):
+    """Build normalized roll-number variants for robust matching."""
+    if raw_roll is None:
+        return []
+
+    candidates = {str(raw_roll).strip()}
+    normalized = []
+
+    for candidate in candidates:
+        cleaned = candidate.replace(' ', '').upper()
+        if not cleaned:
+            continue
+        normalized.append(cleaned)
+
+        match = re.match(r'^([0-9]+)\.0+$', cleaned)
+        if match:
+            normalized.append(match.group(1))
+
+    unique = []
+    seen = set()
+    for value in normalized:
+        if value and value not in seen:
+            seen.add(value)
+            unique.append(value)
+    return unique
+
+
+def _build_roll_query(raw_roll):
+    variants = _roll_number_variants(raw_roll)
+    if not variants:
+        return None
+
+    q = Q(roll_no__iexact=variants[0])
+    for variant in variants[1:]:
+        q |= Q(roll_no__iexact=variant)
+    return q
 
 
 # -------------------------
@@ -73,39 +118,61 @@ def student_login(request):
             messages.error(request, "Please enter both Name and Roll Number.")
             return render(request, 'core/student_login.html', {})
         
-        # Validate against ImportedStudent records
+        if not ImportedStudent.objects.exists():
+            messages.error(request, "No imported student records found. Please contact administrator.")
+            return render(request, 'core/student_login.html', {})
+
         try:
-            # Try exact match first
-            imported_student = ImportedStudent.objects.get(
-                roll_no__iexact=roll_no,
-                full_name__iexact=full_name
+            imported_qs = ImportedStudent.objects.filter(
+                full_name__iexact=full_name,
             )
+
+            roll_query = _build_roll_query(roll_no)
+            if roll_query is not None:
+                imported_qs = imported_qs.filter(roll_query)
+
+            imported_student = imported_qs.select_related('import_batch').order_by('-import_batch__imported_at', '-id').first()
+            if not imported_student:
+                raise ImportedStudent.DoesNotExist
+
+            roll_variants = _roll_number_variants(roll_no)
+            canonical_roll = min(roll_variants, key=len) if roll_variants else roll_no.upper()
             
             # Create or get User for this student (if doesn't exist)
             from django.contrib.auth.models import User
             user, user_created = User.objects.get_or_create(
-                username=roll_no.lower(),
+                username=canonical_roll.lower(),
                 defaults={
-                    'email': f"{roll_no}@student.edu",
+                    'email': f"{canonical_roll}@student.edu",
                     'first_name': full_name.split()[0] if full_name else '',
                     'last_name': ' '.join(full_name.split()[1:]) if len(full_name.split()) > 1 else '',
                     'is_active': True
                 }
             )
-            
-            # Get or create Student record for this imported student
-            student, created = Student.objects.get_or_create(
-                roll_no=roll_no.upper(),
-                defaults={
-                    'user': user,
-                    'name': imported_student.full_name,
-                    'department': imported_student.major_branch if imported_student.major_branch != 'GENERAL' else 'CSE',
-                    'marks': imported_student.marks if imported_student.marks is not None else 0,
-                    'percentage': imported_student.percentage if imported_student.percentage is not None else 0,
-                    'is_validated': False,
-                    'email': f"{roll_no}@student.edu"
-                }
+
+            # Get or create Student record with robust roll matching.
+            student = None
+            student_roll_query = _build_roll_query(canonical_roll)
+            if student_roll_query is not None:
+                student = Student.objects.filter(student_roll_query).first()
+
+            created = False
+            resolved_percentage = calculate_percentage_from_marks(
+                imported_student.marks,
+                fallback_percentage=imported_student.percentage,
             )
+            if not student:
+                student = Student.objects.create(
+                    user=user,
+                    name=imported_student.full_name,
+                    roll_no=canonical_roll,
+                    department=imported_student.major_branch if imported_student.major_branch != 'GENERAL' else 'CSE',
+                    marks=imported_student.marks if imported_student.marks is not None else 0,
+                    percentage=resolved_percentage,
+                    is_validated=False,
+                    email=f"{canonical_roll}@student.edu"
+                )
+                created = True
             
             # Update existing student data — but only overwrite with valid imported data
             # Don't overwrite good data from auto-allocation with None/GENERAL
@@ -118,26 +185,37 @@ def student_login(request):
                 # Only update marks/percentage if imported values are meaningful
                 if imported_student.marks is not None and imported_student.marks > 0:
                     student.marks = imported_student.marks
-                if imported_student.percentage is not None and imported_student.percentage > 0:
-                    student.percentage = imported_student.percentage
+                student.percentage = calculate_percentage_from_marks(
+                    student.marks,
+                    fallback_percentage=(
+                        imported_student.percentage
+                        if imported_student.percentage is not None
+                        else student.percentage
+                    ),
+                )
                 if not student.email or student.email.endswith('@student.edu'):
-                    student.email = f"{roll_no}@student.edu"
+                    student.email = f"{canonical_roll}@student.edu"
                 student.save()
             
             # Store validated student in session
             request.session['validated_student_id'] = student.id
             request.session['student_roll_no'] = student.roll_no
             request.session['student_name'] = student.name
+            # Force verification on every new login session.
+            request.session['student_verification_complete'] = False
+            request.session.pop('validation_step_passed', None)
+            request.session.pop('validation_email_otp', None)
+            request.session.pop('validation_otp_sent_at', None)
+            request.session.pop('validation_otp_sent_to', None)
+            request.session.pop('validation_pending_email', None)
+            request.session.pop('validation_pending_percentage', None)
             
-            messages.success(request, f"Welcome, {student.name}! You can now submit your preferences.")
+            messages.success(request, f"Welcome, {student.name}! Please complete verification to continue.")
             return redirect('student_dashboard')
             
         except ImportedStudent.DoesNotExist:
             messages.error(request, 
                 "Invalid Name or Roll Number. Please check your details or contact the administrator if you were recently added.")
-        except ImportedStudent.MultipleObjectsReturned:
-            messages.error(request, 
-                "Multiple records found. Please contact administrator to resolve this issue.")
 
     return render(request, 'core/student_login.html', {})
 
@@ -232,12 +310,23 @@ def forgot_password(request):
                         messages.success(request, f"OTP has been sent to {email}. Check your email.")
                         return redirect('reset_password_with_otp')
                     except Exception as e:
-                        # ✅ FIX: Provide more detailed error message
-                        print(f"❌ Email sending failed: {str(e)}")
-                        print(f"Email config - HOST: {settings.EMAIL_HOST}, USER: {settings.EMAIL_HOST_USER}, PORT: {settings.EMAIL_PORT}")
+                        logger.exception(
+                            "Password reset OTP email failed for email=%s (host=%s port=%s user=%s): %s",
+                            email,
+                            settings.EMAIL_HOST,
+                            settings.EMAIL_PORT,
+                            settings.EMAIL_HOST_USER,
+                            e,
+                        )
                         
                         # Fallback: Show OTP on page for testing (remove in production)
-                        messages.warning(request, f"Note: Email sending failed. For testing, OTP is: {otp}")
+                        if settings.DEBUG:
+                            messages.warning(
+                                request,
+                                f"Note: Email sending failed ({e.__class__.__name__}: {e}). For testing, OTP is: {otp}"
+                            )
+                        else:
+                            messages.error(request, "Unable to send OTP email right now. Please try again later.")
                         request.session['test_otp_displayed'] = True
                         return redirect('reset_password_with_otp')
             except Exception as e:

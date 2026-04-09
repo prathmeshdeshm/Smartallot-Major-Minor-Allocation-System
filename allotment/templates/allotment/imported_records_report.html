@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-database me-2 text-primary"></i>Imported Records</h2>
+            <p class="text-muted mb-0">All records imported from Excel and TR PDF files.</p>
+        </div>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-secondary mt-2 mt-md-0">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">Visible Records</div>
+                    <div class="h4 mb-0">{{ total_records }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">Excel Records</div>
+                    <div class="h4 mb-0 text-success">{{ total_excel_records }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted small">TR PDF Records</div>
+                    <div class="h4 mb-0 text-primary">{{ total_tr_records }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label for="q" class="form-label">Search</label>
+                    <input id="q" type="text" name="q" class="form-control" value="{{ search_query }}"
+                        placeholder="Name, Roll No, Branch, File name">
+                </div>
+                <div class="col-md-3">
+                    <label for="source" class="form-label">Source</label>
+                    <select id="source" name="source" class="form-select">
+                        <option value="all" {% if is_source_all %}selected{% endif %}>All Sources</option>
+                        <option value="excel" {% if is_source_excel %}selected{% endif %}>Excel</option>
+                        <option value="tr" {% if is_source_tr %}selected{% endif %}>TR PDF</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="batch" class="form-label">Import Batch</label>
+                    <select id="batch" name="batch" class="form-select">
+                        <option value="">All Batches</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.id }}" {% if batch.is_selected %}selected{% endif %}>
+                            #{{ batch.id }} - {{ batch.source_label }} - {{ batch.imported_at|date:"d M Y H:i" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1 d-grid">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Imported At</th>
+                        <th>Source</th>
+                        <th>Roll No</th>
+                        <th>Name</th>
+                        <th>Major Branch (Imported)</th>
+                        <th>Student Department (Current)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rec in records %}
+                    <tr>
+                        <td>{{ rec.import_batch.imported_at|date:"d M Y, H:i" }}</td>
+                        <td>
+                            {% if rec.is_excel_source %}
+                            <span class="badge bg-success-subtle text-success-emphasis border">Excel</span>
+                            {% elif rec.is_tr_source %}
+                            <span class="badge bg-primary-subtle text-primary-emphasis border">TR PDF</span>
+                            {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis border">Unknown</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-semibold">{{ rec.roll_no }}</td>
+                        <td>{{ rec.full_name }}</td>
+                        <td>
+                            <span class="badge bg-info-subtle text-info-emphasis border">
+                                {{ rec.major_branch_display|default:rec.major_branch }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if rec.student_department_display %}
+                            <span class="badge bg-light text-dark border">{{ rec.student_department_display }}</span>
+                            {% else %}
+                            <span class="text-muted">Not registered yet</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if rec.has_branch_mismatch %}
+                            <span class="badge bg-danger">Mismatch</span>
+                            {% elif rec.student_department_display %}
+                            <span class="badge bg-success">Synced</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Pending Registration</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">No imported records found for the selected
+                            filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+        <div class="card-footer bg-white">
+            <nav>
+                <ul class="pagination mb-0 justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ page_obj.previous_page_number }}&q={{ search_query }}&source={{ source_filter }}&batch={{ batch_filter|default:'' }}">Previous</a>
+                    </li>
+                    {% endif %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ page_obj.next_page_number }}&q={{ search_query }}&source={{ source_filter }}&batch={{ batch_filter|default:'' }}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

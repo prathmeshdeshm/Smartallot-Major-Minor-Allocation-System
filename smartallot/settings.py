@@ -7,6 +7,11 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+
+def _getenv_str(name, default=''):
+    value = os.getenv(name, default)
+    return value.strip() if isinstance(value, str) else value
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ============================================
@@ -100,13 +105,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 LOGIN_URL = 'student_login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', "")
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+EMAIL_BACKEND = _getenv_str('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = _getenv_str('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(_getenv_str('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = _getenv_str('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = _getenv_str('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = _getenv_str('EMAIL_HOST_PASSWORD', "")
+DEFAULT_FROM_EMAIL = _getenv_str('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+EMAIL_TIMEOUT = int(_getenv_str('EMAIL_TIMEOUT', '20'))
 TIME_ZONE = 'Asia/Kolkata'
 USE_TZ = True
 ENABLE_REASSESSMENT_FLOW = True

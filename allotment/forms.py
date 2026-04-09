@@ -16,8 +16,7 @@ class StudentValidationForm(forms.Form):
         required=True,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'e.g., 23BI310560',
-            'readonly': 'readonly'
+            'placeholder': 'e.g., 23BI310560'
         })
     )
     
@@ -40,13 +39,15 @@ class StudentDataCollectionForm(forms.Form):
     percentage = forms.DecimalField(
         label='Percentage (%)',
         decimal_places=2,
-        required=True,
+        required=False,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Enter your percentage (0-100)',
+            'placeholder': 'Auto-calculated from grand total marks',
             'step': '0.01',
             'min': '0',
-            'max': '100'
+            'max': '100',
+            'readonly': True,
+            'disabled': True,
         })
     )
     
@@ -65,6 +66,18 @@ class StudentDataCollectionForm(forms.Form):
         widget=forms.EmailInput(attrs={
             'class': 'form-control',
             'placeholder': 'your.email@example.com'
+        })
+    )
+
+    otp = forms.CharField(
+        label='Email OTP',
+        max_length=6,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter 6-digit OTP',
+            'inputmode': 'numeric',
+            'pattern': '[0-9]{6}'
         })
     )
 
@@ -413,5 +426,17 @@ class ImportStudentResultsForm(forms.Form):
         widget=forms.FileInput(attrs={
             'class': 'form-control',
             'accept': '.xlsx,.xls'
+        })
+    )
+
+
+class TRPDFImportForm(forms.Form):
+    """Separate form for importing TR records from PDF."""
+    tr_pdf_file = forms.FileField(
+        label='Upload TR PDF File (.pdf)',
+        help_text='TR PDF can be misaligned; parser auto-detects roll no, name, marks, percentage, and branch where available.',
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': '.pdf'
         })
     )

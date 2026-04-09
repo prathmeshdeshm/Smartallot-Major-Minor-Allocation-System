@@ -250,7 +250,8 @@
             <!-- STEP 2: Marks, Percentage, Branch, Email -->
             {% elif step == 2 %}
             <div style="background: rgba(37, 99, 235, 0.05); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                <strong>Step 2 of 2:</strong> Provide your academic details
+                <strong>Step 2 of 2:</strong> Verify your email with OTP. Percentage is auto-calculated from your
+                marks and cannot be edited.
             </div>
 
             <!-- Marks (READ-ONLY from imported data) -->
@@ -266,16 +267,10 @@
             <div class="form-group">
                 <label for="id_percentage" class="form-label">
                     <i class="fas fa-percent me-1"></i>Percentage (%)
-                    <span style="color: #ef4444;">*</span>
                 </label>
-                {{ form.percentage }}
-                <div class="field-help-text">Your percentage (0-100)</div>
-                {% if form.percentage.errors %}
-                <div class="error-message" style="margin-top: 8px; padding: 8px;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    {{ form.percentage.errors.0 }}
-                </div>
-                {% endif %}
+                <input type="text" id="id_percentage" class="form-control" value="{{ auto_percentage|floatformat:2 }}"
+                    readonly disabled>
+                <div class="field-help-text">Auto-calculated from grand total marks (read-only)</div>
             </div>
 
             <!-- Branch (READ-ONLY from imported data) -->
@@ -296,7 +291,7 @@
                     <span style="color: #ef4444;">*</span>
                 </label>
                 {{ form.email }}
-                <div class="field-help-text">Your email address</div>
+                <div class="field-help-text">Enter your personal email where OTP will be sent</div>
                 {% if form.email.errors %}
                 <div class="error-message" style="margin-top: 8px; padding: 8px;">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -304,16 +299,45 @@
                 </div>
                 {% endif %}
             </div>
+
+            {% if otp_sent %}
+            <div class="info-section" style="margin-top: 16px; margin-bottom: 20px;">
+                <i class="fas fa-envelope-circle-check"></i>
+                <strong>OTP Sent:</strong> A verification code has been sent to {{ otp_sent_to }}.
+            </div>
+
+            <div class="form-group">
+                <label for="id_otp" class="form-label">
+                    <i class="fas fa-shield-alt me-1"></i>Email OTP
+                    <span style="color: #ef4444;">*</span>
+                </label>
+                {{ form.otp }}
+                <div class="field-help-text">Enter the 6-digit OTP to complete verification</div>
+                {% if form.otp.errors %}
+                <div class="error-message" style="margin-top: 8px; padding: 8px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ form.otp.errors.0 }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
             {% endif %}
 
             <!-- Submit Button -->
+            {% if step == 1 %}
             <button type="submit" class="submit-btn">
-                {% if step == 1 %}
                 <i class="fas fa-arrow-right me-2"></i>Verify & Proceed to Step 2
-                {% elif step == 2 %}
-                <i class="fas fa-check-circle me-2"></i>Complete Validation
-                {% endif %}
             </button>
+            {% elif step == 2 %}
+            <button type="submit" class="submit-btn" name="action" value="send_otp" style="margin-bottom: 10px;">
+                <i class="fas fa-paper-plane me-2"></i>{% if otp_sent %}Resend OTP{% else %}Send OTP{% endif %}
+            </button>
+            {% if otp_sent %}
+            <button type="submit" class="submit-btn" name="action" value="verify_otp">
+                <i class="fas fa-check-circle me-2"></i>Verify OTP & Complete Validation
+            </button>
+            {% endif %}
+            {% endif %}
 
             <div class="required-notice">
                 <i class="fas fa-asterisk"></i> All fields are mandatory and must match your registration records
@@ -336,11 +360,6 @@
 </div>
 
 <script>
-    // Prevent back button after successful validation
-    if ({{ student.is_validated | lower }} === true) {
-        window.location.href = "{% url 'student_dashboard' %}";
-    }
-
     // Form validation feedback
     document.querySelector('form').addEventListener('submit', function (e) {
         const submitBtn = document.querySelector('.submit-btn');

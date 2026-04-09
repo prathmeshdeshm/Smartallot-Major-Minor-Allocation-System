@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Confirmation Step 2{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-danger shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="fas fa-skull-crossbones me-2"></i>Step 2 of 2: Final Permanent Delete
+                        Confirmation</h4>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        Final confirmation for <strong>{{ snapshot.label }}</strong> deletion.
+                    </p>
+                    <div class="alert alert-danger">
+                        This operation permanently deletes records directly from the database.
+                    </div>
+
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for item in snapshot.stats %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span>{{ item.label }}</span>
+                            <span class="badge bg-danger rounded-pill">{{ item.count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="confirmation_text">
+                                Type exactly: <code>{{ snapshot.challenge_text }}</code>
+                            </label>
+                            <input type="text" class="form-control" id="confirmation_text" name="confirmation_text"
+                                placeholder="Type confirmation text exactly" autocomplete="off">
+                        </div>
+
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="confirm_step_2" name="confirm_step_2">
+                            <label class="form-check-label" for="confirm_step_2">
+                                This is my second confirmation.
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirm_permanent"
+                                name="confirm_permanent">
+                            <label class="form-check-label" for="confirm_permanent">
+                                I understand this is a permanent database deletion.
+                            </label>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash-alt me-1"></i>Delete Permanently Now
+                            </button>
+                            <button type="submit" class="btn btn-outline-secondary" name="action" value="cancel">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </button>
+                            <a href="{% url 'admin_delete_module' %}" class="btn btn-outline-dark">
+                                <i class="fas fa-arrow-left me-1"></i>Back to Delete Module
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

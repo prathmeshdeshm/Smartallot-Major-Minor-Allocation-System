@@ -2,6 +2,8 @@
 from datetime import timedelta
 import csv
 import json
+import logging
+import math
 from datetime import datetime
 from django.utils import timezone   # you already had this, ensure it remains
 
@@ -9,18 +11,24 @@ from django.db import transaction
 from django.db.models import Max, Min, Q, Count
 from django.db.models import Min
 from django.utils import timezone
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.core.mail import send_mail
+from django.conf import settings
+import random
+import string
 
 from .utils import (
     run_minor1_allocation, run_minor2_allocation, run_oe_allocation,
     import_students_from_excel, validate_student, record_preference_submission,
     identify_absconding_students, validate_seat_capacity, run_absconding_allocation,
     export_allocation_to_excel, import_student_results_from_excel,  # NEW
-    validate_student_details, log_validation_attempt, complete_student_validation  # NEW: Validation funcs
+    validate_student_details, log_validation_attempt, complete_student_validation,
+    calculate_percentage_from_marks,  # NEW: Validation funcs
 )
+from .tr_pdf_import import import_students_from_tr_pdf
 from .models import (
     Student, MinorBranch, OpenElective, MinorAllocation, DoubleMinorAllocation,
     OEAllocation, MinorPreference, DoubleMinorPreference, OEPreference,
@@ -28,7 +36,12 @@ from .models import (
     StudentImport, ImportedStudent, PreferenceSubmission, AbscondingStudent,  # NEW
     WaitlistEntry,  # For absconding cleanup
 )
-from .forms import StudentForm, ExcelImportForm, ImportStudentResultsForm, StudentValidationForm, StudentDataCollectionForm  # NEW
+from .forms import StudentForm, ExcelImportForm, ImportStudentResultsForm, TRPDFImportForm, StudentValidationForm, StudentDataCollectionForm  # NEW
+
+
+logger = logging.getLogger(__name__)
+
+DELETE_WORKFLOW_SESSION_KEY = 'admin_delete_workflow'
 
 
 # -------------------------
@@ -40,6 +53,98 @@ def admin_required(user):
 
 def is_admin(user):
     return user.is_superuser
+
+
+def _get_preference_window_for_display(preference_type):
+    """Prefer the currently active window; otherwise return the latest saved window."""
+    return PreferenceWindow.objects.filter(
+        preference_type=preference_type
+    ).order_by('-is_active', '-created_at', '-id').first()
+
+
+def _detect_import_source(file_name):
+    lower_name = (file_name or '').lower()
+    if lower_name.endswith('.pdf'):
+        return 'TR PDF'
+    if lower_name.endswith('.xlsx') or lower_name.endswith('.xls'):
+        return 'Excel'
+    return 'Unknown'
+
+
+def _get_delete_component_snapshot(component):
+    if component == 'courses_branches':
+        return {
+            'component': component,
+            'label': 'Courses and Branches',
+            'challenge_text': 'DELETE COURSES AND BRANCHES',
+            'stats': [
+                {'label': 'Minor Branches', 'count': MinorBranch.objects.count()},
+                {'label': 'Open Electives', 'count': OpenElective.objects.count()},
+                {'label': 'Minor Eligibility Rules', 'count': EligibilityRule.objects.count()},
+                {'label': 'OE Eligibility Rules', 'count': OEEligibilityRule.objects.count()},
+            ],
+            'warning': (
+                'This permanently removes all courses/branches and related rules, preferences, '
+                'allocations, and waitlist records linked to them.'
+            ),
+        }
+
+    if component == 'students':
+        return {
+            'component': component,
+            'label': 'Students',
+            'challenge_text': 'DELETE STUDENTS',
+            'stats': [
+                {'label': 'Registered Students', 'count': Student.objects.count()},
+                {'label': 'Imported Students', 'count': ImportedStudent.objects.count()},
+                {'label': 'Import Batches', 'count': StudentImport.objects.count()},
+            ],
+            'warning': (
+                'This permanently removes all registered and imported student records, including '
+                'student-linked preferences, allocations, reassessments, and student accounts.'
+            ),
+        }
+
+    return None
+
+
+def _execute_component_delete(component):
+    if component == 'courses_branches':
+        minor_count = MinorBranch.objects.count()
+        oe_count = OpenElective.objects.count()
+
+        with transaction.atomic():
+            MinorBranch.objects.all().delete()
+            OpenElective.objects.all().delete()
+
+        return {
+            'label': 'Courses and Branches',
+            'counts': {
+                'minor_branches': minor_count,
+                'open_electives': oe_count,
+            },
+        }
+
+    if component == 'students':
+        student_count = Student.objects.count()
+        imported_count = ImportedStudent.objects.count()
+        import_batch_count = StudentImport.objects.count()
+
+        with transaction.atomic():
+            Student.objects.all().delete()
+            StudentImport.objects.all().delete()
+            ImportedStudent.objects.all().delete()
+
+        return {
+            'label': 'Students',
+            'counts': {
+                'students': student_count,
+                'imported_students': imported_count,
+                'import_batches': import_batch_count,
+            },
+        }
+
+    raise ValueError('Unsupported delete component.')
 
 
 def student_session_required(view_func):
@@ -88,7 +193,138 @@ def home(request):
             return redirect('admin_dashboard')
         return redirect('student_dashboard')
     
-    return render(request, 'allotment/home.html')
+    now, live_updates = _build_home_live_updates()
+
+    context = {
+        'live_updates': live_updates[:6],
+        'live_updates_generated_at': now,
+    }
+    return render(request, 'allotment/home.html', context)
+
+
+def _build_home_live_updates():
+    now = timezone.now()
+
+    def build_window_update(preference_type, label):
+        window = _get_preference_window_for_display(preference_type)
+        if not window:
+            return {
+                'type': 'window',
+                'severity': 'info',
+                'title': f'{label} Window Not Configured',
+                'message': f'Admin has not configured a {label.lower()} preference window yet.',
+                'timestamp': now,
+            }
+
+        if window.is_active and window.start_at <= now <= window.end_at:
+            return {
+                'type': 'window',
+                'severity': 'success',
+                'title': f'{label} Window Open',
+                'message': (
+                    f'Open now. Started: {timezone.localtime(window.start_at).strftime("%d %b %Y %H:%M")}, '
+                    f'closes: {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}. '
+                    'Submit preferences before deadline.'
+                ),
+                'timestamp': window.end_at,
+            }
+
+        if now < window.start_at:
+            return {
+                'type': 'window',
+                'severity': 'info',
+                'title': f'{label} Window Scheduled',
+                'message': (
+                    f'Opens on {timezone.localtime(window.start_at).strftime("%d %b %Y %H:%M")}. '
+                    f'Ends on {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}. '
+                    'You can submit once it opens.'
+                ),
+                'timestamp': window.start_at,
+            }
+
+        return {
+            'type': 'window',
+            'severity': 'secondary',
+            'title': f'{label} Window Closed',
+            'message': f'Closed on {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}.',
+            'timestamp': window.end_at,
+        }
+
+    live_updates = [
+        build_window_update('minor', 'Minor Preferences'),
+        build_window_update('oe', 'Open Elective'),
+    ]
+
+    latest_minor_submission = PreferenceSubmission.objects.exclude(
+        minor_submitted_at__isnull=True
+    ).select_related('student').order_by('-minor_submitted_at').first()
+    if latest_minor_submission:
+        live_updates.append({
+            'type': 'submission',
+            'severity': 'primary',
+            'title': 'Latest Minor Submission',
+            'message': (
+                f'{latest_minor_submission.student.name} submitted minor preferences at '
+                f'{timezone.localtime(latest_minor_submission.minor_submitted_at).strftime("%d %b %Y %H:%M:%S")}. '
+                'Submission timestamps are tracked server-side.'
+            ),
+            'timestamp': latest_minor_submission.minor_submitted_at,
+        })
+
+    latest_oe_submission = PreferenceSubmission.objects.exclude(
+        oe_submitted_at__isnull=True
+    ).select_related('student').order_by('-oe_submitted_at').first()
+    if latest_oe_submission:
+        live_updates.append({
+            'type': 'submission',
+            'severity': 'primary',
+            'title': 'Latest OE Submission',
+            'message': (
+                f'{latest_oe_submission.student.name} submitted OE preferences at '
+                f'{timezone.localtime(latest_oe_submission.oe_submitted_at).strftime("%d %b %Y %H:%M:%S")}. '
+                'Submission timestamps are tracked server-side.'
+            ),
+            'timestamp': latest_oe_submission.oe_submitted_at,
+        })
+
+    latest_result_run = AuditLog.objects.filter(action='allocation_run').order_by('-timestamp').first()
+    if latest_result_run:
+        live_updates.append({
+            'type': 'result',
+            'severity': 'warning',
+            'title': 'Allocation Results Update',
+            'message': f'Latest allocation run was recorded at {timezone.localtime(latest_result_run.timestamp).strftime("%d %b %Y %H:%M:%S")}.',
+            'timestamp': latest_result_run.timestamp,
+        })
+    else:
+        live_updates.append({
+            'type': 'result',
+            'severity': 'secondary',
+            'title': 'Allocation Results Pending',
+            'message': 'No allocation run recorded yet. Results notification will appear here once allocation is executed.',
+            'timestamp': now,
+        })
+
+    live_updates.sort(key=lambda x: x['timestamp'], reverse=True)
+    return now, live_updates[:6]
+
+
+def home_live_updates_api(request):
+    now, live_updates = _build_home_live_updates()
+    payload = {
+        'generated_at': timezone.localtime(now).strftime('%d %b %Y %H:%M:%S'),
+        'updates': [
+            {
+                'type': item['type'],
+                'severity': item['severity'],
+                'title': item['title'],
+                'message': item['message'],
+                'timestamp': timezone.localtime(item['timestamp']).strftime('%d %b %Y %H:%M:%S'),
+            }
+            for item in live_updates
+        ],
+    }
+    return JsonResponse(payload)
 
 
 # -------------------------
@@ -205,9 +441,7 @@ def admin_dashboard(request):
         students_with_prefs = paginator.page(paginator.num_pages)
 
     def get_window_context(preference_type):
-        window = PreferenceWindow.objects.filter(
-            preference_type=preference_type
-        ).order_by('-start_at').first()
+        window = _get_preference_window_for_display(preference_type)
 
         start_value = ""
         end_value = ""
@@ -257,6 +491,149 @@ def admin_dashboard(request):
     return render(request, 'allotment/admin_dashboard.html', context)
 
 
+@login_required
+@user_passes_test(is_admin)
+def admin_delete_module(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'start':
+            component = request.POST.get('component')
+            snapshot = _get_delete_component_snapshot(component)
+            if snapshot is None:
+                messages.error(request, 'Invalid delete component selected.')
+                return redirect('admin_delete_module')
+
+            request.session[DELETE_WORKFLOW_SESSION_KEY] = {
+                'component': component,
+                'step1_confirmed': False,
+                'started_at': timezone.now().isoformat(),
+            }
+            request.session.modified = True
+            return redirect('admin_delete_confirm_step1')
+
+        if action == 'reset':
+            request.session.pop(DELETE_WORKFLOW_SESSION_KEY, None)
+            messages.info(request, 'Delete workflow has been cancelled.')
+            return redirect('admin_delete_module')
+
+    active_workflow = request.session.get(DELETE_WORKFLOW_SESSION_KEY)
+    active_snapshot = None
+    if active_workflow:
+        active_snapshot = _get_delete_component_snapshot(active_workflow.get('component'))
+
+    context = {
+        'courses_branches_snapshot': _get_delete_component_snapshot('courses_branches'),
+        'students_snapshot': _get_delete_component_snapshot('students'),
+        'active_workflow': active_workflow,
+        'active_snapshot': active_snapshot,
+    }
+    return render(request, 'allotment/admin_delete_module.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def admin_delete_confirm_step1(request):
+    workflow = request.session.get(DELETE_WORKFLOW_SESSION_KEY)
+    if not workflow:
+        messages.error(request, 'No active delete workflow found. Start from the Delete Module page.')
+        return redirect('admin_delete_module')
+
+    snapshot = _get_delete_component_snapshot(workflow.get('component'))
+    if snapshot is None:
+        request.session.pop(DELETE_WORKFLOW_SESSION_KEY, None)
+        messages.error(request, 'Invalid delete component. Please start again.')
+        return redirect('admin_delete_module')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'cancel':
+            request.session.pop(DELETE_WORKFLOW_SESSION_KEY, None)
+            messages.info(request, 'Delete workflow cancelled.')
+            return redirect('admin_delete_module')
+
+        acknowledged = request.POST.get('confirm_step_1') == 'on'
+        if not acknowledged:
+            messages.error(request, 'Please confirm the first acknowledgement to continue.')
+        else:
+            workflow['step1_confirmed'] = True
+            request.session[DELETE_WORKFLOW_SESSION_KEY] = workflow
+            request.session.modified = True
+            return redirect('admin_delete_confirm_step2')
+
+    return render(request, 'allotment/admin_delete_confirm_step1.html', {'snapshot': snapshot})
+
+
+@login_required
+@user_passes_test(is_admin)
+def admin_delete_confirm_step2(request):
+    workflow = request.session.get(DELETE_WORKFLOW_SESSION_KEY)
+    if not workflow:
+        messages.error(request, 'No active delete workflow found. Start from the Delete Module page.')
+        return redirect('admin_delete_module')
+
+    if not workflow.get('step1_confirmed'):
+        messages.error(request, 'Please complete first confirmation step before final deletion.')
+        return redirect('admin_delete_confirm_step1')
+
+    snapshot = _get_delete_component_snapshot(workflow.get('component'))
+    if snapshot is None:
+        request.session.pop(DELETE_WORKFLOW_SESSION_KEY, None)
+        messages.error(request, 'Invalid delete component. Please start again.')
+        return redirect('admin_delete_module')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'cancel':
+            request.session.pop(DELETE_WORKFLOW_SESSION_KEY, None)
+            messages.info(request, 'Delete workflow cancelled.')
+            return redirect('admin_delete_module')
+
+        second_confirmation = request.POST.get('confirm_step_2') == 'on'
+        permanent_confirmation = request.POST.get('confirm_permanent') == 'on'
+        entered_text = (request.POST.get('confirmation_text') or '').strip().upper()
+        expected_text = snapshot['challenge_text'].upper()
+
+        if not second_confirmation:
+            messages.error(request, 'Please complete the second confirmation checkbox.')
+            return render(request, 'allotment/admin_delete_confirm_step2.html', {'snapshot': snapshot})
+
+        if not permanent_confirmation:
+            messages.error(request, 'Please confirm that deletion is permanent.')
+            return render(request, 'allotment/admin_delete_confirm_step2.html', {'snapshot': snapshot})
+
+        if entered_text != expected_text:
+            messages.error(request, 'Confirmation text does not match. Deletion cancelled.')
+            return render(request, 'allotment/admin_delete_confirm_step2.html', {'snapshot': snapshot})
+
+        try:
+            deletion_result = _execute_component_delete(snapshot['component'])
+            request.session.pop(DELETE_WORKFLOW_SESSION_KEY, None)
+
+            counts = deletion_result['counts']
+            if snapshot['component'] == 'courses_branches':
+                messages.success(
+                    request,
+                    f"Permanent deletion completed for Courses and Branches: "
+                    f"{counts['minor_branches']} minor branches and {counts['open_electives']} open electives removed."
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Permanent deletion completed for Students: "
+                    f"{counts['students']} registered students, "
+                    f"{counts['imported_students']} imported students, and "
+                    f"{counts['import_batches']} import batches removed."
+                )
+            return redirect('admin_delete_module')
+        except Exception as exc:
+            messages.error(request, f'Failed to delete records: {exc}')
+
+    return render(request, 'allotment/admin_delete_confirm_step2.html', {'snapshot': snapshot})
+
+
 # NEW: EXCEL IMPORT VIEW
 @login_required
 @user_passes_test(is_admin)
@@ -267,13 +644,14 @@ def import_students_excel(request):
         if form.is_valid():
             try:
                 excel_file = request.FILES['excel_file']
-                import_batch, errors = import_students_from_excel(excel_file, request.user)
+                import_batch, errors, synced_students = import_students_from_excel(excel_file, request.user)
                 
                 if import_batch:
                     messages.success(
                         request,
                         f"Imported {import_batch.successful_records} students successfully. "
-                        f"Failed: {import_batch.failed_records}"
+                        f"Failed: {import_batch.failed_records}. "
+                        f"Department synced for {synced_students} existing student record(s)."
                     )
                     
                     # Show errors if any
@@ -332,6 +710,143 @@ def import_student_results_excel(request):
     form = ImportStudentResultsForm()
     context = {'form': form}
     return render(request, 'allotment/import_student_results.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def import_tr_pdf(request):
+    """Admin endpoint for uploading TR PDF (hybrid import path, separate from Excel logic)."""
+    if request.method == 'POST':
+        form = TRPDFImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                tr_pdf_file = request.FILES['tr_pdf_file']
+                import_batch, errors, summary = import_students_from_tr_pdf(tr_pdf_file, request.user)
+
+                if import_batch:
+                    messages.success(
+                        request,
+                        f"TR PDF parsed: {summary.get('parsed', 0)} | "
+                        f"Imported: {summary.get('imported', 0)} | "
+                        f"Failed: {summary.get('failed', 0)} | "
+                        f"Department synced: {summary.get('synced_students', 0)}"
+                    )
+                else:
+                    messages.error(request, "TR PDF import failed. No records were imported.")
+
+                if errors:
+                    for error in errors[:10]:
+                        messages.warning(request, error)
+                    if len(errors) > 10:
+                        messages.warning(request, f"... and {len(errors) - 10} more parser/validation notes")
+
+            except Exception as e:
+                messages.error(request, f"Error during TR PDF import: {str(e)}")
+        else:
+            messages.error(request, "Invalid upload form data")
+
+        return redirect('admin_dashboard')
+
+    form = TRPDFImportForm()
+    context = {'form': form}
+    return render(request, 'allotment/import_tr_pdf.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def imported_records_report(request):
+    """Admin module to inspect all imported records from Excel and TR PDF sources."""
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+    search_query = (request.GET.get('q') or '').strip()
+    source_filter = (request.GET.get('source') or 'all').strip().lower()
+    batch_filter_raw = (request.GET.get('batch') or '').strip()
+
+    records_qs = ImportedStudent.objects.select_related('import_batch').order_by(
+        '-import_batch__imported_at', 'roll_no'
+    )
+
+    if source_filter == 'excel':
+        records_qs = records_qs.filter(
+            Q(import_batch__file__iendswith='.xlsx') |
+            Q(import_batch__file__iendswith='.xls')
+        )
+    elif source_filter == 'tr':
+        records_qs = records_qs.filter(import_batch__file__iendswith='.pdf')
+
+    active_batch_id = None
+    if batch_filter_raw.isdigit():
+        active_batch_id = int(batch_filter_raw)
+        records_qs = records_qs.filter(import_batch_id=active_batch_id)
+
+    if search_query:
+        records_qs = records_qs.filter(
+            Q(full_name__icontains=search_query) |
+            Q(roll_no__icontains=search_query) |
+            Q(major_branch__icontains=search_query) |
+            Q(import_batch__file__icontains=search_query)
+        )
+
+    paginator = Paginator(records_qs, 50)
+    page_number = request.GET.get('page', 1)
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
+    page_records = list(page_obj.object_list)
+
+    roll_numbers = [str(rec.roll_no).strip() for rec in page_records if rec.roll_no]
+    student_by_roll = {
+        str(student.roll_no).strip().upper(): student
+        for student in Student.objects.filter(roll_no__in=roll_numbers).only('roll_no', 'department')
+    }
+    dept_map = dict(Student.DEPARTMENTS)
+
+    for rec in page_records:
+        rec.source_label = _detect_import_source(getattr(rec.import_batch.file, 'name', ''))
+        rec.is_excel_source = rec.source_label == 'Excel'
+        rec.is_tr_source = rec.source_label == 'TR PDF'
+        rec.major_branch_display = dept_map.get(rec.major_branch, rec.major_branch)
+
+        matched_student = student_by_roll.get(str(rec.roll_no).strip().upper())
+        rec.student_department_code = matched_student.department if matched_student else None
+        rec.student_department_display = (
+            dept_map.get(matched_student.department, matched_student.department)
+            if matched_student else None
+        )
+        rec.has_branch_mismatch = bool(
+            matched_student and rec.major_branch and rec.major_branch != 'GENERAL' and
+            matched_student.department != rec.major_branch
+        )
+
+    batches = StudentImport.objects.order_by('-imported_at')[:50]
+    for batch in batches:
+        batch.source_label = _detect_import_source(getattr(batch.file, 'name', ''))
+        batch.is_selected = bool(active_batch_id and batch.id == active_batch_id)
+
+    total_excel_records = ImportedStudent.objects.filter(
+        Q(import_batch__file__iendswith='.xlsx') | Q(import_batch__file__iendswith='.xls')
+    ).count()
+    total_tr_records = ImportedStudent.objects.filter(import_batch__file__iendswith='.pdf').count()
+
+    context = {
+        'page_obj': page_obj,
+        'records': page_records,
+        'search_query': search_query,
+        'source_filter': source_filter,
+        'is_source_all': source_filter == 'all',
+        'is_source_excel': source_filter == 'excel',
+        'is_source_tr': source_filter == 'tr',
+        'batch_filter': active_batch_id,
+        'batches': batches,
+        'total_records': records_qs.count(),
+        'total_excel_records': total_excel_records,
+        'total_tr_records': total_tr_records,
+    }
+    return render(request, 'allotment/imported_records_report.html', context)
 
 
 
@@ -570,6 +1085,38 @@ def validate_capacity(request):
 
 # ======================== STUDENT VALIDATION (2-STEP PROCESS) ========================
 
+VALIDATION_OTP_SESSION_KEYS = [
+    'validation_email_otp',
+    'validation_otp_sent_at',
+    'validation_otp_sent_to',
+    'validation_pending_email',
+    'validation_pending_percentage',
+]
+
+
+def _clear_validation_otp_session(request):
+    for key in VALIDATION_OTP_SESSION_KEYS:
+        request.session.pop(key, None)
+
+
+def _generate_validation_otp(length=6):
+    return ''.join(random.choices(string.digits, k=length))
+
+
+def _send_personalized_validation_otp(student, email, otp):
+    subject = 'SmartAllot Identity Verification OTP'
+    message = (
+        f"Dear {student.name},\n\n"
+        f"Your OTP for SmartAllot identity verification is: {otp}\n\n"
+        f"Roll Number: {student.roll_no}\n"
+        f"This OTP is valid for 10 minutes.\n\n"
+        f"If you did not request this, please ignore this email.\n\n"
+        f"Regards,\n"
+        f"SmartAllot Team"
+    )
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+    send_mail(subject, message, from_email, [email], fail_silently=False)
+
 def validate_student_form(request):
     """
     Two-step student validation:
@@ -592,10 +1139,8 @@ def validate_student_form(request):
     # Refresh from DB to ensure latest data
     student.refresh_from_db()
     
-    # If already validated, redirect to dashboard
-    if student.is_validated:
-        # Clean up session flags
-        request.session.pop('validation_step_passed', None)
+    # If this login session is already verified, skip validation form.
+    if request.session.get('student_verification_complete'):
         return redirect('student_dashboard')
     
     # Check which step we're on
@@ -617,6 +1162,8 @@ def validate_student_form(request):
                 if success:
                     # Step 1 passed - set session flag and proceed to step 2
                     request.session['validation_step_passed'] = True
+                    request.session['student_verification_complete'] = False
+                    _clear_validation_otp_session(request)
                     request.session.modified = True  # Force session save
                     log_validation_attempt(student, success=True)
                     return redirect('validate_student_form')
@@ -624,9 +1171,6 @@ def validate_student_form(request):
                     # Validation failed - log attempt
                     log_validation_attempt(student, success=False, reason=reason)
                     messages.error(request, message)
-                    form = StudentValidationForm(initial={
-                        'roll_no': student.roll_no
-                    })
         else:
             # GET request - pre-fill roll_no
             form = StudentValidationForm(initial={
@@ -642,12 +1186,17 @@ def validate_student_form(request):
         return render(request, 'allotment/validate_student.html', context)
     
     else:
-        # STEP 2: Collect marks, percentage, email, and branch
+        # STEP 2: Collect email and OTP; percentage is auto-calculated from marks
+        auto_percentage = calculate_percentage_from_marks(student.marks, student.percentage)
+        otp_sent_to = request.session.get('validation_otp_sent_to')
+        otp_sent = bool(otp_sent_to and request.session.get('validation_email_otp'))
+
         if request.method == 'POST':
             form = StudentDataCollectionForm(request.POST)
+            action = request.POST.get('action', 'send_otp')
             if form.is_valid():
-                percentage = form.cleaned_data.get('percentage')
                 email = form.cleaned_data.get('email')
+                otp_entered = (form.cleaned_data.get('otp') or '').strip()
                 
                 # ✅ FIX: Do NOT use branch from form - always use imported data (student.department)
                 # This ensures branch cannot be changed by student input
@@ -655,18 +1204,106 @@ def validate_student_form(request):
                 
                 # ✅ FIX: Do NOT use marks from form - always use imported data (student.marks)
                 # This ensures grand total marks cannot be changed by student input
-                
-                # Mark student as validated AND update their data (branch & marks stay as imported)
-                success, msg = complete_student_validation(student, email, percentage, branch)
-                
-                if success:
-                    request.session['validation_step_passed'] = False  # Reset for next login
-                    request.session.modified = True  # Force session save
-                    messages.success(request, msg)
-                    return redirect('student_dashboard')
+
+                duplicate_email_exists = Student.objects.filter(
+                    email__iexact=email
+                ).exclude(id=student.id).exists()
+
+                if duplicate_email_exists:
+                    messages.error(request, "This email is already used by another student account.")
+                elif action == 'send_otp':
+                    otp = _generate_validation_otp()
+                    try:
+                        _send_personalized_validation_otp(student, email, otp)
+                    except Exception as exc:
+                        logger.exception(
+                            "Failed to send validation OTP for roll_no=%s email=%s: %s",
+                            student.roll_no,
+                            email,
+                            exc,
+                        )
+                        if settings.DEBUG:
+                            # Dev fallback: keep OTP flow testable when SMTP is misconfigured.
+                            request.session['validation_email_otp'] = otp
+                            request.session['validation_otp_sent_at'] = timezone.now().isoformat()
+                            request.session['validation_otp_sent_to'] = email
+                            request.session['validation_pending_email'] = email
+                            request.session['validation_pending_percentage'] = str(auto_percentage)
+                            request.session.modified = True
+                            messages.warning(
+                                request,
+                                f"Email sending failed in DEBUG mode ({exc.__class__.__name__}: {exc}). Use OTP: {otp}"
+                            )
+                            return redirect('validate_student_form')
+                        messages.error(
+                            request,
+                            "Unable to send OTP email right now. Email service authentication failed. Please contact admin or try again later."
+                        )
+                    else:
+                        request.session['validation_email_otp'] = otp
+                        request.session['validation_otp_sent_at'] = timezone.now().isoformat()
+                        request.session['validation_otp_sent_to'] = email
+                        request.session['validation_pending_email'] = email
+                        request.session['validation_pending_percentage'] = str(auto_percentage)
+                        request.session.modified = True
+                        messages.success(
+                            request,
+                            f"OTP sent to {email}. Enter the OTP to complete verification."
+                        )
+                        return redirect('validate_student_form')
+                elif action == 'verify_otp':
+                    session_otp = request.session.get('validation_email_otp')
+                    otp_sent_at_raw = request.session.get('validation_otp_sent_at')
+                    otp_email = request.session.get('validation_otp_sent_to')
+
+                    if not session_otp or not otp_sent_at_raw or not otp_email:
+                        messages.error(request, "OTP session expired. Please request a new OTP.")
+                    elif email.lower() != otp_email.lower():
+                        messages.error(request, "Email changed after OTP was sent. Please request a new OTP.")
+                    else:
+                        try:
+                            otp_sent_at = datetime.fromisoformat(otp_sent_at_raw)
+                            if timezone.is_naive(otp_sent_at):
+                                otp_sent_at = timezone.make_aware(otp_sent_at)
+                        except Exception:
+                            otp_sent_at = None
+
+                        if not otp_sent_at or timezone.now() - otp_sent_at > timedelta(minutes=10):
+                            _clear_validation_otp_session(request)
+                            request.session.modified = True
+                            messages.error(request, "OTP has expired. Please request a new OTP.")
+                        elif not otp_entered:
+                            messages.error(request, "Please enter the OTP sent to your email.")
+                        elif otp_entered != session_otp:
+                            messages.error(request, "Invalid OTP. Please try again.")
+                        else:
+                            pending_email = request.session.get('validation_pending_email', email)
+                            pending_percentage = request.session.get('validation_pending_percentage', str(auto_percentage))
+
+                            try:
+                                pending_percentage_value = float(pending_percentage)
+                            except (TypeError, ValueError):
+                                pending_percentage_value = auto_percentage
+
+                            success, msg = complete_student_validation(
+                                student,
+                                pending_email,
+                                pending_percentage_value,
+                                branch,
+                                marks=student.marks,
+                            )
+
+                            if success:
+                                request.session['validation_step_passed'] = False
+                                request.session['student_verification_complete'] = True
+                                _clear_validation_otp_session(request)
+                                request.session.modified = True
+                                messages.success(request, msg)
+                                return redirect('student_dashboard')
+
+                            messages.error(request, msg)
                 else:
-                    messages.error(request, msg)
-                    # Stay on Step 2 and show errors
+                    messages.error(request, "Invalid action. Please try again.")
             else:
                 # Form validation failed - show errors
                 messages.error(request, "Please check all fields and try again.")
@@ -674,15 +1311,26 @@ def validate_student_form(request):
             # GET request - pre-fill with student data
             form = StudentDataCollectionForm(initial={
                 'branch': student.department,
-                'percentage': student.percentage if student.percentage > 0 else '',
-                'email': student.email if student.email else ''
+                'percentage': request.session.get(
+                    'validation_pending_percentage',
+                    auto_percentage if auto_percentage > 0 else ''
+                ),
+                'email': request.session.get(
+                    'validation_pending_email',
+                    student.email if student.email else ''
+                )
             })
+            otp_sent_to = request.session.get('validation_otp_sent_to')
+            otp_sent = bool(otp_sent_to and request.session.get('validation_email_otp'))
         
         context = {
             'form': form,
             'student': student,
             'page_title': 'Student Data Collection - Step 2',
-            'step': 2
+            'step': 2,
+            'otp_sent': otp_sent,
+            'otp_sent_to': otp_sent_to,
+            'auto_percentage': auto_percentage,
         }
         return render(request, 'allotment/validate_student.html', context)
 
@@ -707,20 +1355,29 @@ def student_dashboard(request):
     # Refresh student data from database to ensure we have latest validation status
     student.refresh_from_db()
     
-    # CHECK VALIDATION STATUS - Block dashboard until validated
-    if not student.is_validated:
+    # CHECK SESSION VERIFICATION STATUS - Block dashboard until verified for current login.
+    if not request.session.get('student_verification_complete', False):
         messages.warning(request, "Please verify your identity before accessing the dashboard.")
         return redirect('validate_student_form')
 
+    auto_percentage = calculate_percentage_from_marks(student.marks, student.percentage)
+    current_percentage = float(student.percentage or 0)
+    if abs(current_percentage - auto_percentage) > 0.01:
+        student.percentage = auto_percentage
+        student.save(update_fields=['percentage'])
+
     def get_window_state(preference_type):
         now = timezone.now()
-        window = PreferenceWindow.objects.filter(
-            preference_type=preference_type
-        ).order_by('-start_at').first()
+        window = _get_preference_window_for_display(preference_type)
 
         if not window:
             return None, False, 'no_window'
-        if window.is_active and window.start_at <= now <= window.end_at:
+
+        # Inactive windows must never block active access checks.
+        if not window.is_active:
+            return window, False, 'ended'
+
+        if window.start_at <= now <= window.end_at:
             return window, True, 'open'
         if now < window.start_at:
             return window, False, 'not_started'
@@ -1390,6 +2047,7 @@ def student_dashboard(request):
 
     context = {
         'student': student,
+        'auto_percentage': auto_percentage,
         'minor1_allocation': minor1_alloc,
         'minor2_allocation': minor2_alloc,
         'oe_allocation': oe_alloc,
@@ -1450,28 +2108,91 @@ def manage_courses(request):
 def course_create(request):
     if request.method == 'POST':
         course_type = request.POST.get('course_type')
-        name = request.POST.get('name')
-        capacity = request.POST.get('capacity') or 0
+        name = (request.POST.get('name') or '').strip()
         offering_dept = request.POST.get('offering_dept', '').strip()
-        try:
-            capacity = int(capacity)
-        except ValueError:
-            capacity = 0
+
+        def get_related_blocked_departments(dept_code):
+            dept = (dept_code or '').upper().strip()
+            related_pairs = {
+                'IT': ['IT', 'CSE'],
+                'CSE': ['CSE', 'IT'],
+                'ECE': ['ECE', 'ENTC'],
+                'ENTC': ['ENTC', 'ECE'],
+            }
+            if dept in related_pairs:
+                return related_pairs[dept]
+            return [dept] if dept else []
+
+        if course_type not in {'minor', 'oe'}:
+            messages.error(request, 'Invalid course type selected.')
+            return redirect('course_create')
+
+        if not name:
+            messages.error(request, 'Course name is required.')
+            return redirect('course_create')
+
+        if not offering_dept:
+            messages.error(request, 'Offering department is required.')
+            return redirect('course_create')
+
+        def calculate_minor_capacity():
+            total_records_minor = Student.objects.count() or ImportedStudent.objects.count()
+            total_minor_branches = MinorBranch.objects.count() + 1  # include this new branch
+            extra_minor_seats = 2
+            auto_minor_capacity = math.ceil(total_records_minor / total_minor_branches) + extra_minor_seats if total_minor_branches > 0 else extra_minor_seats
+            return auto_minor_capacity, total_records_minor, total_minor_branches, extra_minor_seats
+
+        def calculate_oe_capacity():
+            total_records_oe = Student.objects.count() or ImportedStudent.objects.count()
+            total_oe_branches = OpenElective.objects.count() + 1  # include this new branch
+            extra_oe_seats = 2
+            auto_oe_capacity = math.ceil(total_records_oe / total_oe_branches) + extra_oe_seats if total_oe_branches > 0 else extra_oe_seats
+            return auto_oe_capacity, total_records_oe, total_oe_branches, extra_oe_seats
 
         if course_type == 'minor':
-            MinorBranch.objects.create(
-                name=name, 
-                capacity=capacity,
-                offering_dept=offering_dept or None
-            )
-        elif course_type == 'oe':
-            OpenElective.objects.create(
-                name=name, 
-                capacity=capacity,
-                offering_dept=offering_dept or None
-            )
+            auto_capacity, total_records, total_available_branches, extra_seats = calculate_minor_capacity()
+        else:
+            auto_capacity, total_records, total_available_branches, extra_seats = calculate_oe_capacity()
 
-        messages.success(request, 'Course created successfully.')
+        with transaction.atomic():
+            blocked_departments = get_related_blocked_departments(offering_dept)
+
+            if course_type == 'minor':
+                course = MinorBranch.objects.create(
+                    name=name,
+                    capacity=auto_capacity,
+                    offering_dept=offering_dept or None
+                )
+
+                if blocked_departments:
+                    EligibilityRule.objects.create(
+                        branch=course,
+                        rule_type='DEPARTMENT_BLOCK',
+                        value={'blocked_departments': blocked_departments},
+                        is_active=True,
+                    )
+
+            else:
+                course = OpenElective.objects.create(
+                    name=name,
+                    capacity=auto_capacity,
+                    offering_dept=offering_dept or None
+                )
+
+                if blocked_departments:
+                    OEEligibilityRule.objects.create(
+                        oe_subject=course,
+                        rule_type='DEPARTMENT_BLOCK',
+                        value={'blocked_departments': blocked_departments},
+                        is_active=True,
+                    )
+
+        messages.success(
+            request,
+            f'Course created successfully with auto capacity {auto_capacity} '
+            f'(records={total_records}, branches={total_available_branches}, roundup + {extra_seats}), '
+            f'and related department-block rule was applied: {", ".join(blocked_departments)}.'
+        )
         return redirect('manage_courses')
 
     departments = Student.DEPARTMENTS

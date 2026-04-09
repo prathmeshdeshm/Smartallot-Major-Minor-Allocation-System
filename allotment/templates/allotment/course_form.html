@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 
 {% block content %}
 <style>
@@ -159,20 +159,20 @@
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-8 text-center">
-            <div class="icon-wrapper">
-    {% if action == 'Create' %}
-        <i class="fas fa-plus"></i>
-    {% else %}
-        <i class="fas fa-edit"></i>
-    {% endif %}
-</div>
+                <div class="icon-wrapper">
+                    {% if action == 'Create' %}
+                    <i class="fas fa-plus"></i>
+                    {% else %}
+                    <i class="fas fa-edit"></i>
+                    {% endif %}
+                </div>
 
                 <h1 class="display-5 fw-bold mb-2">{{ action }} Course</h1>
                 <p class="lead mb-0">
                     {% if action == 'Create' %}
-                        Add a new course to the system
+                    Add a new course to the system
                     {% else %}
-                        Update course information and settings
+                    Update course information and settings
                     {% endif %}
                 </p>
             </div>
@@ -187,7 +187,7 @@
                 <div class="form-body">
                     <form method="post" class="needs-validation" novalidate>
                         {% csrf_token %}
-                        
+
                         {% if action == 'Create' %}
                         <div class="form-section">
                             <h6><i class="fas fa-tag me-2"></i>Course Type</h6>
@@ -198,7 +198,8 @@
                                     <option value="minor">Minor Branch</option>
                                     <option value="oe">Open Elective</option>
                                 </select>
-                                <div class="form-text">Choose whether this is a minor branch or open elective course.</div>
+                                <div class="form-text">Choose whether this is a minor branch or open elective course.
+                                </div>
                             </div>
                         </div>
                         {% endif %}
@@ -207,25 +208,43 @@
                             <h6><i class="fas fa-info-circle me-2"></i>Basic Information</h6>
                             <div class="form-group">
                                 <label class="form-label">Course Name</label>
-                                <input type="text" name="name" class="form-control" value="{{ course.name|default:'' }}" required placeholder="Enter course name">
+                                <input type="text" name="name" class="form-control" value="{{ course.name|default:'' }}"
+                                    required placeholder="Enter course name">
                                 <div class="form-text">Enter the full name of the course.</div>
                             </div>
-                            
+
+                            {% if action == 'Create' %}
                             <div class="form-group">
                                 <label class="form-label">Capacity</label>
-                                <input type="number" name="capacity" class="form-control" value="{{ course.capacity|default:'' }}" required placeholder="Enter capacity" min="1">
-                                <div class="form-text">Maximum number of students that can be allocated to this course.</div>
+                                <input type="text" class="form-control" value="Auto-calculated" readonly>
+                                <div class="form-text">Capacity is calculated automatically as roundup(total records /
+                                    total branches of selected type) + 2.</div>
                             </div>
+                            {% else %}
+                            <div class="form-group">
+                                <label class="form-label">Capacity</label>
+                                <input type="number" name="capacity" class="form-control"
+                                    value="{{ course.capacity|default:'' }}" required placeholder="Enter capacity"
+                                    min="1">
+                                <div class="form-text">Maximum number of students that can be allocated to this course.
+                                </div>
+                            </div>
+                            {% endif %}
 
                             <div class="form-group">
                                 <label class="form-label">Offering Department</label>
-                                <select name="offering_dept" class="form-select" required>
+                                <select name="offering_dept" class="form-select" required
+                                    data-selected="{{ course.offering_dept|default:'' }}">
                                     <option value="">Select offering department...</option>
                                     {% for dept_code, dept_name in departments %}
-                                        <option value="{{ dept_code }}" {% if course.offering_dept == dept_code %}selected{% endif %}>{{ dept_name }} ({{ dept_code }})</option>
+                                    <option value="{{ dept_code }}">
+                                        {{ dept_name }} ({{ dept_code }})
+                                    </option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">Select which department offers this course. This ensures transparent allocation and prevents offering courses not actually offered by the department.</div>
+                                <div class="form-text">Select which department offers this course. This ensures
+                                    transparent allocation and prevents offering courses not actually offered by the
+                                    department.</div>
                             </div>
                         </div>
 
@@ -234,8 +253,10 @@
                             <h6><i class="fas fa-ban me-2"></i>Restrictions</h6>
                             <div class="form-group">
                                 <label class="form-label">Restricted Department (Optional)</label>
-                                <input type="text" name="restricted_dept" class="form-control" value="{{ course.restricted_dept|default:'' }}" placeholder="e.g., CSE, IT, ECE">
-                                <div class="form-text">Enter department codes to block from this course (comma-separated).</div>
+                                <input type="text" name="restricted_dept" class="form-control"
+                                    value="{{ course.restricted_dept|default:'' }}" placeholder="e.g., CSE, IT, ECE">
+                                <div class="form-text">Enter department codes to block from this course
+                                    (comma-separated).</div>
                             </div>
                         </div>
                         {% endif %}
@@ -257,12 +278,12 @@
 
 <script>
     // Form validation
-    (function() {
+    (function () {
         'use strict';
-        window.addEventListener('load', function() {
+        window.addEventListener('load', function () {
             var forms = document.getElementsByClassName('needs-validation');
-            var validation = Array.prototype.filter.call(forms, function(form) {
-                form.addEventListener('submit', function(event) {
+            var validation = Array.prototype.filter.call(forms, function (form) {
+                form.addEventListener('submit', function (event) {
                     if (form.checkValidity() === false) {
                         event.preventDefault();
                         event.stopPropagation();
@@ -274,17 +295,27 @@
     })();
 
     // Add loading state to submit button
-    document.querySelector('form').addEventListener('submit', function() {
+    document.querySelector('form').addEventListener('submit', function () {
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
         submitBtn.disabled = true;
-        
+
         // Reset after 5 seconds in case of errors
         setTimeout(() => {
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         }, 5000);
     });
+
+    // Preselect offering department without template equality comparison syntax
+    (function () {
+        const deptSelect = document.querySelector('select[name="offering_dept"]');
+        if (!deptSelect) return;
+        const selectedDept = deptSelect.dataset.selected || '';
+        if (selectedDept) {
+            deptSelect.value = selectedDept;
+        }
+    })();
 </script>
 {% endblock %}

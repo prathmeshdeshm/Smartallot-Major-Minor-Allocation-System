@@ -125,14 +125,212 @@
         margin: 4px 6px;
     }
 
-    /* Management buttons */
-    .btn-management {
+    .allocation-engine-card .section-card-body {
+        padding: 14px 16px 16px;
+    }
+
+    .allocation-engine-card .section-muted {
+        margin-bottom: 12px !important;
+        line-height: 1.45;
+    }
+
+    .allocation-run-btn {
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-weight: 600;
+        letter-spacing: 0.35px;
+        font-size: 0.95rem;
+    }
+
+    /* Operations workspace quick actions */
+    .ops-workspace {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 8px;
+    }
+
+    .ops-bento {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .ops-cluster {
+        border: 1px solid #d7e2ef;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+        padding: 12px;
+    }
+
+    .ops-cluster-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    .ops-cluster-title {
+        margin: 0;
+        font-size: 0.96rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: 0.01em;
+    }
+
+    .ops-cluster-tag {
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .cluster-import .ops-cluster-tag {
+        background: #d9f5fb;
+        color: #0e7490;
+    }
+
+    .cluster-manage .ops-cluster-tag {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .cluster-report .ops-cluster-tag {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .ops-actions {
+        display: grid;
+        gap: 8px;
+    }
+
+    .ops-action {
+        --ops-accent: #1d4ed8;
+        --ops-soft: #dbeafe;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid #dbe5f1;
+        border-radius: 12px;
+        background: #fbfdff;
+        padding: 9px 10px;
+        text-decoration: none;
+        color: #0f172a;
+        min-height: 56px;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .ops-action:hover {
+        transform: translateY(-1px);
+        border-color: #b9cce3;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        color: #0f172a;
+        text-decoration: none;
+    }
+
+    .ops-action:focus-visible {
+        outline: 3px solid #0ea5e9;
+        outline-offset: 2px;
+    }
+
+    .ops-action-icon {
+        width: 34px;
+        height: 34px;
         border-radius: 10px;
-        padding: 9px 14px;
-        font-weight: 500;
-        font-size: 0.85rem;
-        width: 100%;
-        margin-bottom: 10px;
+        background: var(--ops-soft);
+        color: var(--ops-accent);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .ops-action-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .ops-action-title {
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 700;
+        line-height: 1.2;
+        color: #0f172a;
+    }
+
+    .ops-action-note {
+        display: none;
+    }
+
+    .accent-cyan {
+        --ops-accent: #0e7490;
+        --ops-soft: #d9f5fb;
+    }
+
+    .accent-blue {
+        --ops-accent: #1d4ed8;
+        --ops-soft: #dbeafe;
+    }
+
+    .accent-slate {
+        --ops-accent: #334155;
+        --ops-soft: #e2e8f0;
+    }
+
+    .accent-red {
+        --ops-accent: #b91c1c;
+        --ops-soft: #fee2e2;
+    }
+
+    .accent-amber {
+        --ops-accent: #b45309;
+        --ops-soft: #fef3c7;
+    }
+
+    .accent-gray {
+        --ops-accent: #475569;
+        --ops-soft: #e2e8f0;
+    }
+
+    .accent-green {
+        --ops-accent: #15803d;
+        --ops-soft: #dcfce7;
+    }
+
+    .quick-actions-body {
+        padding: 16px;
+        background: #fbfdff;
+    }
+
+    @media (min-width: 768px) {
+        .ops-actions {
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        }
+    }
+
+    @media (min-width: 992px) {
+        .ops-workspace {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .ops-bento {
+            grid-template-columns: 1fr;
+        }
+
+        .cluster-import {
+            grid-column: 1 / -1;
+        }
+
+        .ops-actions {
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        }
     }
 
     /* Table styles */
@@ -365,8 +563,14 @@
                             <small class="text-muted d-block">
                                 <strong>Current:</strong>
                                 {% if minor_window %}
-                                {{ minor_window.start_at|date:"d M Y, H:i:s" }} → {{ minor_window.end_at|date:"d M Y, H:i:s" }}
-                                {% if minor_window.is_active %}<span class="badge bg-success ms-2">Active</span>{% else %}<span class="badge bg-secondary ms-2">Inactive</span>{% endif %}
+                                <span>{{ minor_window.start_at|date:"d M Y, H:i:s" }}</span>
+                                <span>→</span>
+                                <span>{{ minor_window.end_at|date:"d M Y, H:i:s" }}</span>
+                                {% if minor_window.is_active %}
+                                <span class="badge bg-success ms-2">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary ms-2">Inactive</span>
+                                {% endif %}
                                 {% else %}
                                 No minor window configured.
                                 {% endif %}
@@ -415,8 +619,14 @@
                             <small class="text-muted d-block">
                                 <strong>Current:</strong>
                                 {% if oe_window %}
-                                {{ oe_window.start_at|date:"d M Y, H:i:s" }} → {{ oe_window.end_at|date:"d M Y, H:i:s" }}
-                                {% if oe_window.is_active %}<span class="badge bg-success ms-2">Active</span>{% else %}<span class="badge bg-secondary ms-2">Inactive</span>{% endif %}
+                                <span>{{ oe_window.start_at|date:"d M Y, H:i:s" }}</span>
+                                <span>→</span>
+                                <span>{{ oe_window.end_at|date:"d M Y, H:i:s" }}</span>
+                                {% if oe_window.is_active %}
+                                <span class="badge bg-success ms-2">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary ms-2">Inactive</span>
+                                {% endif %}
                                 {% else %}
                                 No OE window configured.
                                 {% endif %}
@@ -429,10 +639,10 @@
     </div>
 
     <!-- Controls row: allocation + management -->
-    <div class="row mb-4">
+    <div class="row mb-4 g-3 align-items-start">
         <!-- Allocation controls -->
-        <div class="col-lg-6 mb-3 mb-lg-0">
-            <div class="section-card h-100">
+        <div class="col-lg-4 mb-3 mb-lg-0">
+            <div class="section-card allocation-engine-card">
                 <div class="section-card-header">
                     <div class="section-card-title">
                         <i class="fas fa-cogs text-primary"></i> Allocation Engine
@@ -448,12 +658,10 @@
                     </p>
                     <form method="post" class="d-grid gap-2">
                         {% csrf_token %}
-                        <button type="submit" name="run_minor1" class="btn btn-lg btn-primary"
-                            style="border-radius: 8px; padding: 12px 24px; font-weight: 600; letter-spacing: 0.5px;">
+                        <button type="submit" name="run_minor1" class="btn btn-primary allocation-run-btn">
                             <i class="fas fa-play me-2"></i> RUN MINOR 1 ALLOCATION
                         </button>
-                        <button type="submit" name="run_oe" class="btn btn-lg btn-success"
-                            style="border-radius: 8px; padding: 12px 24px; font-weight: 600; letter-spacing: 0.5px;">
+                        <button type="submit" name="run_oe" class="btn btn-success allocation-run-btn">
                             <i class="fas fa-play me-2"></i> RUN OPEN ELECTIVES
                         </button>
                     </form>
@@ -462,43 +670,122 @@
         </div>
 
         <!-- Management / Reports -->
-        <div class="col-lg-6">
-            <div class="section-card h-100">
+        <div class="col-lg-8">
+            <div class="section-card">
                 <div class="section-card-header">
                     <div class="section-card-title">
                         <i class="fas fa-tools text-secondary"></i> Quick Actions
                     </div>
                 </div>
-                <div class="section-card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'import_student_results_excel' %}" class="btn btn-outline-info btn-management"
-                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
-                            <i class="fas fa-file-import me-2"></i> Import Data
-                        </a>
-                        <a href="{% url 'student_list' %}" class="btn btn-outline-danger btn-management"
-                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
-                            <i class="fas fa-users me-2"></i> Manage Students
-                        </a>
-                        <a href="{% url 'manage_absconding_students' %}" class="btn btn-outline-warning btn-management"
-                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
-                            <i class="fas fa-user-slash me-2"></i> Absconding Students
-                        </a>
-                        <a href="{% url 'validate_capacity' %}" class="btn btn-outline-secondary btn-management"
-                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
-                            <i class="fas fa-check-circle me-2"></i> Validate Capacity
-                        </a>
-                        <a href="{% url 'manage_courses' %}" class="btn btn-outline-primary btn-management"
-                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
-                            <i class="fas fa-cog me-2"></i> Manage Courses & Rules
-                        </a>
-                        <a href="{% url 'allocation_report' %}" class="btn btn-outline-info btn-management"
-                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
-                            <i class="fas fa-table me-2"></i> Allocation Report
-                        </a>
-                        <a href="{% url 'download_csv_report' %}" class="btn btn-outline-success btn-management"
-                            style="border-radius: 8px; padding: 10px 16px; font-weight: 500;">
-                            <i class="fas fa-download me-2"></i> Download Report
-                        </a>
+                <div class="section-card-body quick-actions-body">
+                    <div class="ops-workspace" aria-label="Admin quick actions workspace">
+                        <div class="ops-bento">
+                            <section class="ops-cluster cluster-import" aria-labelledby="panel-data-records">
+                                <div class="ops-cluster-header">
+                                    <h3 id="panel-data-records" class="ops-cluster-title">Import and Records</h3>
+                                    <span class="ops-cluster-tag">Data</span>
+                                </div>
+                                <div class="ops-actions">
+                                    <a href="{% url 'import_students_excel' %}" class="ops-action accent-cyan"
+                                        aria-label="Import students from Excel file">
+                                        <span class="ops-action-icon"><i class="fas fa-file-import"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Import Students Excel</span>
+                                        </span>
+                                    </a>
+
+                                    <a href="{% url 'import_tr_pdf' %}" class="ops-action accent-blue"
+                                        aria-label="Import records from TR PDF">
+                                        <span class="ops-action-icon"><i class="fas fa-file-pdf"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Import TR PDF</span>
+                                        </span>
+                                    </a>
+
+                                    <a href="{% url 'imported_records_report' %}" class="ops-action accent-slate"
+                                        aria-label="View imported records report">
+                                        <span class="ops-action-icon"><i class="fas fa-table-list"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Imported Records Report</span>
+                                        </span>
+                                    </a>
+                                </div>
+                            </section>
+
+                            <section class="ops-cluster cluster-manage" aria-labelledby="panel-student-course">
+                                <div class="ops-cluster-header">
+                                    <h3 id="panel-student-course" class="ops-cluster-title">Student and Course Control
+                                    </h3>
+                                    <span class="ops-cluster-tag">Manage</span>
+                                </div>
+                                <div class="ops-actions">
+                                    <a href="{% url 'student_list' %}" class="ops-action accent-red"
+                                        aria-label="Manage student records">
+                                        <span class="ops-action-icon"><i class="fas fa-users"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Manage Students</span>
+                                        </span>
+                                    </a>
+
+                                    <a href="{% url 'manage_absconding_students' %}" class="ops-action accent-amber"
+                                        aria-label="Handle absconding students">
+                                        <span class="ops-action-icon"><i class="fas fa-user-slash"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Absconding Students</span>
+                                        </span>
+                                    </a>
+
+                                    <a href="{% url 'manage_courses' %}" class="ops-action accent-blue"
+                                        aria-label="Manage courses and rules">
+                                        <span class="ops-action-icon"><i class="fas fa-cog"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Manage Courses and Rules</span>
+                                        </span>
+                                    </a>
+
+                                    <a href="{% url 'admin_delete_module' %}" class="ops-action accent-red"
+                                        aria-label="Open permanent delete module">
+                                        <span class="ops-action-icon"><i class="fas fa-trash-can"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Permanent Delete Module</span>
+                                        </span>
+                                    </a>
+                                </div>
+                            </section>
+
+                            <section class="ops-cluster cluster-report" aria-labelledby="panel-validation-reports">
+                                <div class="ops-cluster-header">
+                                    <h3 id="panel-validation-reports" class="ops-cluster-title">Validation and Reports
+                                    </h3>
+                                    <span class="ops-cluster-tag">Review</span>
+                                </div>
+                                <div class="ops-actions">
+                                    <a href="{% url 'validate_capacity' %}" class="ops-action accent-gray"
+                                        aria-label="Validate capacity constraints">
+                                        <span class="ops-action-icon"><i class="fas fa-check-circle"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Validate Capacity</span>
+                                        </span>
+                                    </a>
+
+                                    <a href="{% url 'allocation_report' %}" class="ops-action accent-cyan"
+                                        aria-label="View allocation report">
+                                        <span class="ops-action-icon"><i class="fas fa-table"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Allocation Report</span>
+                                        </span>
+                                    </a>
+
+                                    <a href="{% url 'download_csv_report' %}" class="ops-action accent-green"
+                                        aria-label="Download report CSV">
+                                        <span class="ops-action-icon"><i class="fas fa-download"></i></span>
+                                        <span class="ops-action-body">
+                                            <span class="ops-action-title">Download Report</span>
+                                        </span>
+                                    </a>
+                                </div>
+                            </section>
+                        </div>
                     </div>
                 </div>
             </div>

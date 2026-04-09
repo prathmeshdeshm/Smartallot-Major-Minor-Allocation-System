@@ -447,6 +447,22 @@
         cursor: not-allowed;
     }
 
+    .clear-preferences-btn {
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        color: #1e293b;
+        padding: 0.875rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .clear-preferences-btn:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+    }
+
     /* Results Table */
     .results-table {
         border-collapse: collapse;
@@ -519,6 +535,11 @@
 
         .submit-preferences-btn {
             width: 100%;
+        }
+
+        .clear-preferences-btn {
+            width: 100%;
+            margin-bottom: 0.75rem;
         }
 
         .preference-header-row {
@@ -638,6 +659,11 @@
             <div class="info-card-label">Grand Total Marks</div>
             <div class="info-card-value" style="color: #0066cc;">{{ student.marks }}</div>
         </div>
+        <div class="info-card">
+            <div class="info-card-icon"><i class="fas fa-percent"></i></div>
+            <div class="info-card-label">Auto Calculated Percentage</div>
+            <div class="info-card-value" style="color: #1d4ed8;">{{ auto_percentage|floatformat:2 }}%</div>
+        </div>
     </div>
 
     <!-- ✅ NEW: Notifications Panel -->
@@ -697,7 +723,8 @@
                             <i class="fas fa-list-ol text-primary"></i>
                             <h5>Minor 1 Preferences</h5>
                         </div>
-                        <span class="status-pill min-required"><i class="fas fa-shield-halved"></i>Minimum 3 required</span>
+                        <span class="status-pill min-required"><i class="fas fa-shield-halved"></i>Minimum 3
+                            required</span>
                     </div>
                     {% if minor_window_status == 'open' %}
                     <div class="alert-info-custom">
@@ -716,12 +743,14 @@
                             data-item-id="{{ item.id }}" title="Not available for your selection">
                             <input type="checkbox" class="form-check-input minor1-checkbox" name="minor1_branches"
                                 value="{{ item.id }}" style="width: 1.25em; height: 1.25em; cursor: pointer;"
-                                data-seat-remaining="{{ item.remaining_seats|default:0 }}" data-item-name="{{ item.name }}" disabled>
+                                data-seat-remaining="{{ item.remaining_seats|default:0 }}"
+                                data-item-name="{{ item.name }}" disabled>
                             {% else %}
                             <label class="list-group-item d-flex align-items-center gap-3" data-item-id="{{ item.id }}">
                                 <input type="checkbox" class="form-check-input minor1-checkbox" name="minor1_branches"
                                     value="{{ item.id }}" style="width: 1.25em; height: 1.25em; cursor: pointer;"
-                                    data-seat-remaining="{{ item.remaining_seats|default:0 }}" data-item-name="{{ item.name }}">
+                                    data-seat-remaining="{{ item.remaining_seats|default:0 }}"
+                                    data-item-name="{{ item.name }}">
                                 {% endif %}
                                 <div class="flex-grow-1">
                                     <div class="fw-600" style="font-weight: 600; margin-bottom: 0.25rem;">
@@ -729,8 +758,12 @@
                                             class="badge bg-danger ms-2">Unavailable</span>{% endif %}
                                     </div>
                                     <div class="preference-option-meta">
-                                        <small class="text-muted"><i class="fas fa-building me-1"></i>{{ item.offering_dept }}</small>
-                                        <span class="seat-chip"><i class="fas fa-chair"></i>{{ item.remaining_seats|default:0 }} seats left</span>
+                                        <small class="text-muted"><i class="fas fa-building me-1"></i>
+                                            {{ item.offering_dept }}
+                                        </small>
+                                        <span class="seat-chip"><i class="fas fa-chair"></i>
+                                            {{ item.remaining_seats|default:0 }} seats left
+                                        </span>
                                     </div>
                                 </div>
                                 <span class="preference-badge"></span>
@@ -755,7 +788,9 @@
                                 <div class="selected-pref-number">{{ forloop.counter }}</div>
                                 <div class="selected-pref-content">
                                     <strong>{{ pref.minor_branch.name }}</strong>
-                                    <small><i class="fas fa-building me-1"></i>{{ pref.minor_branch.offering_dept }}</small>
+                                    <small><i class="fas fa-building me-1"></i>
+                                        {{ pref.minor_branch.offering_dept }}
+                                    </small>
                                 </div>
                             </div>
                             {% endfor %}
@@ -771,11 +806,15 @@
                             <i class="fas fa-list-ol text-success"></i>
                             <h5>Open Electives Preferences</h5>
                         </div>
-                        <span class="status-pill min-required"><i class="fas fa-shield-halved"></i>Minimum 3 required</span>
+                        <span class="status-pill min-required"><i class="fas fa-shield-halved"></i>Minimum 3
+                            required</span>
                     </div>
                     {% if oe_window_status == 'open' %}
                     <div class="alert-info-custom">
-                        <small><i class="fas fa-info-circle me-1"></i>Select your preferred open electives ({{ available_oe_count }} available for you) — minimum 3 required.</small>
+                        <small><i class="fas fa-info-circle me-1"></i>
+                            Select your preferred open electives ({{ available_oe_count }} available for you) - minimum
+                            3 required.
+                        </small>
                     </div>
                     <div id="oe-counter" class="selection-counter" style="display: none;">
                         <i class="fas fa-check-circle"></i>
@@ -790,12 +829,14 @@
                             title="Not eligible for your selection (blocked by major or selected minor branch)">
                             <input type="checkbox" class="form-check-input oe-checkbox" name="oe_branches"
                                 value="{{ item.id }}" style="width: 1.25em; height: 1.25em; cursor: pointer;"
-                                data-seat-remaining="{{ item.remaining_seats|default:0 }}" data-item-name="{{ item.name }}" disabled>
+                                data-seat-remaining="{{ item.remaining_seats|default:0 }}"
+                                data-item-name="{{ item.name }}" disabled>
                             {% else %}
                             <label class="list-group-item d-flex align-items-center gap-3" data-item-id="{{ item.id }}">
                                 <input type="checkbox" class="form-check-input oe-checkbox" name="oe_branches"
                                     value="{{ item.id }}" style="width: 1.25em; height: 1.25em; cursor: pointer;"
-                                    data-seat-remaining="{{ item.remaining_seats|default:0 }}" data-item-name="{{ item.name }}">
+                                    data-seat-remaining="{{ item.remaining_seats|default:0 }}"
+                                    data-item-name="{{ item.name }}">
                                 {% endif %}
                                 <div class="flex-grow-1">
                                     <div class="fw-600" style="font-weight: 600; margin-bottom: 0.25rem;">
@@ -803,8 +844,12 @@
                                             class="badge bg-danger ms-2">Not Eligible</span>{% endif %}
                                     </div>
                                     <div class="preference-option-meta">
-                                        <small class="text-muted"><i class="fas fa-building me-1"></i>{{ item.offering_dept }}</small>
-                                        <span class="seat-chip"><i class="fas fa-chair"></i>{{ item.remaining_seats|default:0 }} seats left</span>
+                                        <small class="text-muted"><i class="fas fa-building me-1"></i>
+                                            {{ item.offering_dept }}
+                                        </small>
+                                        <span class="seat-chip"><i class="fas fa-chair"></i>
+                                            {{ item.remaining_seats|default:0 }} seats left
+                                        </span>
                                     </div>
                                 </div>
                                 <span class="preference-badge"></span>
@@ -831,7 +876,9 @@
                                 <div class="selected-pref-number">{{ forloop.counter }}</div>
                                 <div class="selected-pref-content">
                                     <strong>{{ pref.oe_subject.name }}</strong>
-                                    <small><i class="fas fa-building me-1"></i>{{ pref.oe_subject.offering_dept }}</small>
+                                    <small><i class="fas fa-building me-1"></i>
+                                        {{ pref.oe_subject.offering_dept }}
+                                    </small>
                                 </div>
                             </div>
                             {% endfor %}
@@ -841,25 +888,35 @@
                 </div>
 
                 <div id="live-seat-summary" class="alert alert-info live-summary-wrapper" role="alert">
-                    <div class="live-summary-title"><i class="fas fa-wave-square me-2"></i>Live Seat Availability (Provisional)</div>
+                    <div class="live-summary-title"><i class="fas fa-wave-square me-2"></i>Live Seat Availability
+                        (Provisional)</div>
                     <div class="live-summary-grid">
                         <div class="live-summary-card">
                             <h6><i class="fas fa-diagram-project me-1"></i>Minor Preferences</h6>
                             <p>Selected: <strong id="live-minor-selected">0</strong></p>
                             <p>Seats left (selected): <strong id="live-minor-seats">0</strong></p>
-                            <p>Status: <span id="live-minor-status" class="fw-semibold text-danger">Need at least 3</span></p>
+                            <p>Status: <span id="live-minor-status" class="fw-semibold text-danger">Need at least
+                                    3</span></p>
                         </div>
                         <div class="live-summary-card">
                             <h6><i class="fas fa-graduation-cap me-1"></i>OE Preferences</h6>
                             <p>Selected: <strong id="live-oe-selected">0</strong></p>
                             <p>Seats left (selected): <strong id="live-oe-seats">0</strong></p>
-                            <p>Status: <span id="live-oe-status" class="fw-semibold text-danger">Need at least 3</span></p>
+                            <p>Status: <span id="live-oe-status" class="fw-semibold text-danger">Need at least 3</span>
+                            </p>
                         </div>
                     </div>
-                    <small id="live-requirement-note" class="d-block mt-1 text-danger">Select minimum 3 preferences in each open window to submit.</small>
+                    <small id="live-requirement-note" class="d-block mt-1 text-danger">Select minimum 3 preferences in
+                        each open window to submit.</small>
                 </div>
 
-                <div class="text-end mt-4">
+                <div class="d-flex flex-column flex-md-row justify-content-md-end gap-2 mt-4">
+                    <button type="button" id="clear-minor-btn" class="clear-preferences-btn">
+                        <i class="fas fa-eraser me-2"></i>Clear Minor Selection
+                    </button>
+                    <button type="button" id="clear-oe-btn" class="clear-preferences-btn">
+                        <i class="fas fa-eraser me-2"></i>Clear OE Selection
+                    </button>
                     <button type="submit" id="submit-btn" class="submit-preferences-btn">
                         <i class="fas fa-check me-2"></i>Save Open Preferences
                     </button>
@@ -953,157 +1010,210 @@
         let oeOrder = [];
         const minRequired = 3;
         const minorWindowOpen = {% if minor_window_status == 'open' %}true{% else %}false{% endif %};
-        const oeWindowOpen = {% if oe_window_status == 'open' %}true{% else %}false{% endif %};
+    const oeWindowOpen = {% if oe_window_status == 'open' %}true{% else %} false{% endif %};
 
-        function updatePreferenceBadges(type, orderArray, checkboxClass) {
-            $(`.${checkboxClass}`).each(function () {
-                const label = $(this).closest('label');
-                const badge = label.find('.preference-badge');
-                badge.removeClass('show').text('');
-                label.removeClass('selected');
-            });
+    function updatePreferenceBadges(type, orderArray, checkboxClass) {
+        $(`.${checkboxClass}`).each(function () {
+            const label = $(this).closest('label');
+            const badge = label.find('.preference-badge');
+            badge.removeClass('show').text('');
+            label.removeClass('selected');
+        });
 
-            const counterId = type === 'minor1' ? 'm1' : 'oe';
-            $(`#${counterId}-count`).text(orderArray.length);
+        const counterId = type === 'minor1' ? 'm1' : 'oe';
+        $(`#${counterId}-count`).text(orderArray.length);
 
-            if (orderArray.length > 0) {
-                $(`#${counterId}-counter`).fadeIn(200);
-            } else {
-                $(`#${counterId}-counter`).fadeOut(200);
-            }
-
-            orderArray.forEach((itemId, index) => {
-                const checkbox = $(`.${checkboxClass}[value="${itemId}"]`);
-                const label = checkbox.closest('label');
-                const badge = label.find('.preference-badge');
-
-                let suffix = 'th';
-                const position = index + 1;
-                if (position === 1) suffix = 'st';
-                else if (position === 2) suffix = 'nd';
-                else if (position === 3) suffix = 'rd';
-
-                badge.text(`${position}${suffix} Preference`).addClass('show');
-                label.addClass('selected');
-            });
+        if (orderArray.length > 0) {
+            $(`#${counterId}-counter`).fadeIn(200);
+        } else {
+            $(`#${counterId}-counter`).fadeOut(200);
         }
 
-        function sumSelectedSeats(selector, orderArray) {
-            let total = 0;
-            orderArray.forEach((itemId) => {
-                const checkbox = $(`${selector}[value="${itemId}"]`);
-                const remaining = parseInt(checkbox.data('seatRemaining') || 0, 10);
-                if (!Number.isNaN(remaining)) {
-                    total += remaining;
-                }
-            });
-            return total;
+        orderArray.forEach((itemId, index) => {
+            const checkbox = $(`.${checkboxClass}[value="${itemId}"]`);
+            const label = checkbox.closest('label');
+            const badge = label.find('.preference-badge');
+
+            let suffix = 'th';
+            const position = index + 1;
+            if (position === 1) suffix = 'st';
+            else if (position === 2) suffix = 'nd';
+            else if (position === 3) suffix = 'rd';
+
+            badge.text(`${position}${suffix} Preference`).addClass('show');
+            label.addClass('selected');
+        });
+    }
+
+    function sumSelectedSeats(selector, orderArray) {
+        let total = 0;
+        orderArray.forEach((itemId) => {
+            const checkbox = $(`${selector}[value="${itemId}"]`);
+            const remaining = parseInt(checkbox.data('seatRemaining') || 0, 10);
+            if (!Number.isNaN(remaining)) {
+                total += remaining;
+            }
+        });
+        return total;
+    }
+
+    function updateLiveSeatSummary() {
+        const minorSeats = sumSelectedSeats('.minor1-checkbox', minor1Order);
+        const oeSeats = sumSelectedSeats('.oe-checkbox', oeOrder);
+        const minorReady = !minorWindowOpen || minor1Order.length >= minRequired;
+        const oeReady = !oeWindowOpen || oeOrder.length >= minRequired;
+        const allReady = minorReady && oeReady;
+
+        $('#live-minor-selected').text(minor1Order.length);
+        $('#live-minor-seats').text(minorSeats);
+        $('#live-oe-selected').text(oeOrder.length);
+        $('#live-oe-seats').text(oeSeats);
+
+        if (minorReady) {
+            $('#live-minor-status').text('OK').removeClass('text-danger').addClass('text-success');
+        } else {
+            $('#live-minor-status').text(`Need at least ${minRequired}`).removeClass('text-success').addClass('text-danger');
         }
 
-        function updateLiveSeatSummary() {
-            const minorSeats = sumSelectedSeats('.minor1-checkbox', minor1Order);
-            const oeSeats = sumSelectedSeats('.oe-checkbox', oeOrder);
-            const minorReady = !minorWindowOpen || minor1Order.length >= minRequired;
-            const oeReady = !oeWindowOpen || oeOrder.length >= minRequired;
-            const allReady = minorReady && oeReady;
-
-            $('#live-minor-selected').text(minor1Order.length);
-            $('#live-minor-seats').text(minorSeats);
-            $('#live-oe-selected').text(oeOrder.length);
-            $('#live-oe-seats').text(oeSeats);
-
-            if (minorReady) {
-                $('#live-minor-status').text('OK').removeClass('text-danger').addClass('text-success');
-            } else {
-                $('#live-minor-status').text(`Need at least ${minRequired}`).removeClass('text-success').addClass('text-danger');
-            }
-
-            if (oeReady) {
-                $('#live-oe-status').text('OK').removeClass('text-danger').addClass('text-success');
-            } else {
-                $('#live-oe-status').text(`Need at least ${minRequired}`).removeClass('text-success').addClass('text-danger');
-            }
-
-            const summary = $('#live-seat-summary');
-            summary.removeClass('alert-info alert-warning alert-success');
-            if (allReady) {
-                summary.addClass('alert-success');
-                $('#live-requirement-note').text('Minimum preference requirement satisfied.').removeClass('text-danger').addClass('text-success');
-            } else {
-                summary.addClass('alert-warning');
-                $('#live-requirement-note').text('Select minimum 3 preferences in each open window to submit.').removeClass('text-success').addClass('text-danger');
-            }
-
-            $('#submit-btn').prop('disabled', !allReady);
+        if (oeReady) {
+            $('#live-oe-status').text('OK').removeClass('text-danger').addClass('text-success');
+        } else {
+            $('#live-oe-status').text(`Need at least ${minRequired}`).removeClass('text-success').addClass('text-danger');
         }
 
-        $('.minor1-checkbox').on('change', function () {
-            const itemId = $(this).val();
-            if ($(this).is(':checked')) {
-                if (!minor1Order.includes(itemId)) minor1Order.push(itemId);
-            } else {
-                minor1Order = minor1Order.filter((id) => id !== itemId);
-            }
-            updatePreferenceBadges('minor1', minor1Order, 'minor1-checkbox');
-            updateLiveSeatSummary();
-        });
+        const summary = $('#live-seat-summary');
+        summary.removeClass('alert-info alert-warning alert-success');
+        if (allReady) {
+            summary.addClass('alert-success');
+            $('#live-requirement-note').text('Minimum preference requirement satisfied.').removeClass('text-danger').addClass('text-success');
+        } else {
+            summary.addClass('alert-warning');
+            $('#live-requirement-note').text('Select minimum 3 preferences in each open window to submit.').removeClass('text-success').addClass('text-danger');
+        }
 
-        $('.oe-checkbox').on('change', function () {
-            const itemId = $(this).val();
-            if ($(this).is(':checked')) {
-                if (!oeOrder.includes(itemId)) oeOrder.push(itemId);
-            } else {
-                oeOrder = oeOrder.filter((id) => id !== itemId);
-            }
-            updatePreferenceBadges('oe', oeOrder, 'oe-checkbox');
-            updateLiveSeatSummary();
-        });
+        $('#submit-btn').prop('disabled', !allReady);
+    }
 
-        const initialMinorSelections = [
-            {% for pref_id in selected_m1_pref_ids %}
-                '{{ pref_id }}'{% if not forloop.last %}, {% endif %}
-            {% endfor %}
-        ];
-        const initialOeSelections = [
-            {% for pref_id in selected_oe_pref_ids %}
-                '{{ pref_id }}'{% if not forloop.last %}, {% endif %}
-            {% endfor %}
-        ];
+    function syncHiddenFields() {
+        $('input[name="minor1_order"]').val(minor1Order.join(','));
+        $('input[name="oe_order"]').val(oeOrder.join(','));
+    }
 
-        initialMinorSelections.forEach((prefId) => {
-            const checkbox = $(`.minor1-checkbox[value="${prefId}"]`);
-            if (checkbox.length && !checkbox.is(':disabled')) {
-                checkbox.prop('checked', true);
-                minor1Order.push(prefId);
-            }
-        });
-
-        initialOeSelections.forEach((prefId) => {
-            const checkbox = $(`.oe-checkbox[value="${prefId}"]`);
-            if (checkbox.length && !checkbox.is(':disabled')) {
-                checkbox.prop('checked', true);
-                oeOrder.push(prefId);
-            }
-        });
+    function clearMinorSelections() {
+        if (minorWindowOpen) {
+            minor1Order = [];
+            $('.minor1-checkbox').prop('checked', false);
+        }
 
         updatePreferenceBadges('minor1', minor1Order, 'minor1-checkbox');
-        updatePreferenceBadges('oe', oeOrder, 'oe-checkbox');
+        syncHiddenFields();
         updateLiveSeatSummary();
+    }
 
-        // Only apply form validation to the preferences form, not logout form
-        $('#preferences-form').on('submit', function () {
-            const minorReady = !minorWindowOpen || minor1Order.length >= minRequired;
-            const oeReady = !oeWindowOpen || oeOrder.length >= minRequired;
-            if (!(minorReady && oeReady)) {
-                updateLiveSeatSummary();
-                return false;
-            }
+    function clearOeSelections() {
+        if (oeWindowOpen) {
+            oeOrder = [];
+            $('.oe-checkbox').prop('checked', false);
+        }
 
-            $('input[name="minor1_order"]').val(minor1Order.join(','));
-            $('input[name="oe_order"]').val(oeOrder.join(','));
-            const submitBtn = $('#submit-btn');
-            submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>Saving...').prop('disabled', true);
-        });
+        updatePreferenceBadges('oe', oeOrder, 'oe-checkbox');
+        syncHiddenFields();
+        updateLiveSeatSummary();
+    }
+
+    $('.minor1-checkbox').on('change', function () {
+        const itemId = $(this).val();
+        if ($(this).is(':checked')) {
+            if (!minor1Order.includes(itemId)) minor1Order.push(itemId);
+        } else {
+            minor1Order = minor1Order.filter((id) => id !== itemId);
+        }
+        updatePreferenceBadges('minor1', minor1Order, 'minor1-checkbox');
+        syncHiddenFields();
+        updateLiveSeatSummary();
+    });
+
+    $('.oe-checkbox').on('change', function () {
+        const itemId = $(this).val();
+        if ($(this).is(':checked')) {
+            if (!oeOrder.includes(itemId)) oeOrder.push(itemId);
+        } else {
+            oeOrder = oeOrder.filter((id) => id !== itemId);
+        }
+        updatePreferenceBadges('oe', oeOrder, 'oe-checkbox');
+        syncHiddenFields();
+        updateLiveSeatSummary();
+    });
+
+    $('#clear-minor-btn').on('click', function () {
+        if (!minorWindowOpen) {
+            return;
+        }
+
+        const confirmed = window.confirm('Clear all selected Minor preferences?');
+        if (!confirmed) {
+            return;
+        }
+        clearMinorSelections();
+    });
+
+    $('#clear-oe-btn').on('click', function () {
+        if (!oeWindowOpen) {
+            return;
+        }
+
+        const confirmed = window.confirm('Clear all selected OE preferences?');
+        if (!confirmed) {
+            return;
+        }
+        clearOeSelections();
+    });
+
+    const initialMinorSelections = [
+        {% for pref_id in selected_m1_pref_ids %}
+    '{{ pref_id }}'{% if not forloop.last %}, {% endif %}
+    {% endfor %}
+        ];
+    const initialOeSelections = [
+        {% for pref_id in selected_oe_pref_ids %}
+    '{{ pref_id }}'{% if not forloop.last %}, {% endif %}
+    {% endfor %}
+        ];
+
+    initialMinorSelections.forEach((prefId) => {
+        const checkbox = $(`.minor1-checkbox[value="${prefId}"]`);
+        if (checkbox.length && !checkbox.is(':disabled')) {
+            checkbox.prop('checked', true);
+            minor1Order.push(prefId);
+        }
+    });
+
+    initialOeSelections.forEach((prefId) => {
+        const checkbox = $(`.oe-checkbox[value="${prefId}"]`);
+        if (checkbox.length && !checkbox.is(':disabled')) {
+            checkbox.prop('checked', true);
+            oeOrder.push(prefId);
+        }
+    });
+
+    updatePreferenceBadges('minor1', minor1Order, 'minor1-checkbox');
+    updatePreferenceBadges('oe', oeOrder, 'oe-checkbox');
+    syncHiddenFields();
+    updateLiveSeatSummary();
+
+    // Only apply form validation to the preferences form, not logout form
+    $('#preferences-form').on('submit', function () {
+        const minorReady = !minorWindowOpen || minor1Order.length >= minRequired;
+        const oeReady = !oeWindowOpen || oeOrder.length >= minRequired;
+        if (!(minorReady && oeReady)) {
+            updateLiveSeatSummary();
+            return false;
+        }
+
+        syncHiddenFields();
+        const submitBtn = $('#submit-btn');
+        submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>Saving...').prop('disabled', true);
+    });
     });
 
 </script>

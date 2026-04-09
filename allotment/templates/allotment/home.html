@@ -145,6 +145,123 @@
         padding: 80px 0;
     }
 
+    /* Live Notifications */
+    .live-updates-section {
+        padding: 70px 0;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border-top: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .live-updates-title {
+        font-size: 2.1rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+
+    .live-updates-subtitle {
+        color: #64748b;
+        margin-bottom: 2rem;
+    }
+
+    .update-card {
+        border: 1px solid #e2e8f0;
+        border-left: 6px solid #94a3b8;
+        border-radius: 12px;
+        background: #ffffff;
+        padding: 1rem 1.1rem;
+        margin-bottom: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .update-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .update-card.success {
+        border-left-color: #16a34a;
+    }
+
+    .update-card.info {
+        border-left-color: #0ea5e9;
+    }
+
+    .update-card.primary {
+        border-left-color: #2563eb;
+    }
+
+    .update-card.warning {
+        border-left-color: #ea580c;
+    }
+
+    .update-card.secondary {
+        border-left-color: #64748b;
+    }
+
+    .update-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .update-title {
+        margin: 0;
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .update-time {
+        color: #64748b;
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+
+    .update-message {
+        margin: 0;
+        color: #334155;
+        font-size: 0.93rem;
+        line-height: 1.5;
+    }
+
+    .update-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1.25rem;
+    }
+
+    .update-filter-btn {
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #334155;
+        border-radius: 999px;
+        padding: 0.35rem 0.9rem;
+        font-size: 0.86rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .update-filter-btn:hover {
+        border-color: #2563eb;
+        color: #1d4ed8;
+    }
+
+    .update-filter-btn.active {
+        background: #1d4ed8;
+        color: #ffffff;
+        border-color: #1d4ed8;
+    }
+
+    .update-hidden {
+        display: none;
+    }
+
     .features-section h2 {
         font-size: 2.5rem;
         font-weight: 800;
@@ -273,29 +390,68 @@
             <div class="col-lg-7">
                 <div class="hero-content">
                     <h1 class="fw-bold">SmartAllot</h1>
-                    <p class="lead">The intelligent, automated system for seamless Minor and Open Elective allocation. Experience fair, transparent, and efficient course distribution powered by advanced algorithms.</p>
-                    
+                    <p class="lead">The intelligent, automated system for seamless Minor and Open Elective allocation.
+                        Experience fair, transparent, and efficient course distribution powered by advanced algorithms.
+                    </p>
+
                     {% if user.is_authenticated %}
-                        <div class="d-flex flex-column flex-sm-row hero-buttons">
-                            <a class="btn btn-light" href="{% url 'admin_dashboard' %}" role="button">
-                                <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
-                            </a>
-                        </div>
+                    <div class="d-flex flex-column flex-sm-row hero-buttons">
+                        <a class="btn btn-light" href="{% url 'admin_dashboard' %}" role="button">
+                            <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                        </a>
+                    </div>
                     {% else %}
-                        <div class="d-flex flex-column flex-sm-row hero-buttons">
-                            <a class="btn btn-light" href="{% url 'student_login' %}" role="button">
-                                <i class="fas fa-user-graduate me-2"></i>Student Login
-                            </a>
-                            <a class="btn btn-outline-light" href="{% url 'admin_login' %}" role="button">
-                                <i class="fas fa-user-shield me-2"></i>Admin Login
-                            </a>
-                        </div>
+                    <div class="d-flex flex-column flex-sm-row hero-buttons">
+                        <a class="btn btn-light" href="{% url 'student_login' %}" role="button">
+                            <i class="fas fa-user-graduate me-2"></i>Student Login
+                        </a>
+                        <a class="btn btn-outline-light" href="{% url 'admin_login' %}" role="button">
+                            <i class="fas fa-user-shield me-2"></i>Admin Login
+                        </a>
+                    </div>
                     {% endif %}
                 </div>
             </div>
             <div class="col-lg-5 d-none d-lg-flex justify-content-end">
                 <i class="fas fa-graduation-cap" style="font-size: 300px; opacity: 0.08; margin-right: -50px;"></i>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- LIVE NOTIFICATIONS SECTION -->
+<div class="live-updates-section" data-live-updates-url="{% url 'home_live_updates_api' %}">
+    <div class="container">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-2">
+            <div>
+                <h2 class="live-updates-title"><i class="fas fa-bell me-2"></i>Live Notifications</h2>
+                <p class="live-updates-subtitle mb-0">Preference windows, submission timing, and allocation result
+                    updates from the system.</p>
+            </div>
+        </div>
+
+        <div class="update-filters" id="update-filters">
+            <button type="button" class="update-filter-btn active" data-filter="all">All</button>
+            <button type="button" class="update-filter-btn" data-filter="window">Windows</button>
+            <button type="button" class="update-filter-btn" data-filter="submission">Submissions</button>
+            <button type="button" class="update-filter-btn" data-filter="result">Results</button>
+        </div>
+
+        <div id="live-updates-list" class="mt-4">
+            {% if live_updates %}
+            {% for update in live_updates %}
+            <div class="update-card {{ update.severity }}" data-update-type="{{ update.type }}">
+                <div class="update-header">
+                    <h5 class="update-title">{{ update.title }}</h5>
+                    <span class="update-time">{{ update.timestamp|date:"d M Y H:i:s" }}</span>
+                </div>
+                <p class="update-message">{{ update.message }}</p>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div id="live-updates-empty" class="alert alert-secondary mt-3 mb-0">No live updates available right now.
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -344,7 +500,7 @@
     <div class="container">
         <h2 class="fw-bold">Powerful Features</h2>
         <p class="section-subtitle">Everything you need for seamless, efficient, and fair course allocation</p>
-        
+
         <div class="row g-4">
             <div class="col-lg-4 col-md-6">
                 <div class="feature-card">
@@ -352,7 +508,8 @@
                         <i class="fas fa-brain"></i>
                     </div>
                     <h5>Smart Algorithm</h5>
-                    <p>Advanced intelligent allocation engine that optimizes preferences while respecting capacity constraints and eligibility rules.</p>
+                    <p>Advanced intelligent allocation engine that optimizes preferences while respecting capacity
+                        constraints and eligibility rules.</p>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
@@ -361,7 +518,8 @@
                         <i class="fas fa-chart-bar"></i>
                     </div>
                     <h5>Detailed Analytics</h5>
-                    <p>Real-time dashboards and comprehensive reports providing insights into allocation patterns, trends, and statistics.</p>
+                    <p>Real-time dashboards and comprehensive reports providing insights into allocation patterns,
+                        trends, and statistics.</p>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
@@ -370,7 +528,8 @@
                         <i class="fas fa-check-circle"></i>
                     </div>
                     <h5>Eligibility Rules</h5>
-                    <p>Flexible, configurable rules engine supporting complex eligibility constraints for minors and open electives.</p>
+                    <p>Flexible, configurable rules engine supporting complex eligibility constraints for minors and
+                        open electives.</p>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
@@ -379,7 +538,8 @@
                         <i class="fas fa-mobile-alt"></i>
                     </div>
                     <h5>Responsive Design</h5>
-                    <p>Fully responsive interface works seamlessly on desktop, tablet, and mobile devices with intuitive navigation.</p>
+                    <p>Fully responsive interface works seamlessly on desktop, tablet, and mobile devices with intuitive
+                        navigation.</p>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
@@ -388,7 +548,8 @@
                         <i class="fas fa-shield-alt"></i>
                     </div>
                     <h5>Secure & Audited</h5>
-                    <p>Complete audit trails, validation logs, and secure authentication ensuring transparency and accountability.</p>
+                    <p>Complete audit trails, validation logs, and secure authentication ensuring transparency and
+                        accountability.</p>
                 </div>
             </div>
             <div class="col-lg-4 col-md-6">
@@ -397,11 +558,129 @@
                         <i class="fas fa-file-excel"></i>
                     </div>
                     <h5>Export & Reports</h5>
-                    <p>Generate professional reports and export data to Excel for further analysis and administrative records.</p>
+                    <p>Generate professional reports and export data to Excel for further analysis and administrative
+                        records.</p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        const liveSection = document.querySelector('.live-updates-section');
+        if (!liveSection) return;
+
+        const endpoint = liveSection.dataset.liveUpdatesUrl;
+        const updatesContainer = document.getElementById('live-updates-list');
+        const filtersContainer = document.getElementById('update-filters');
+        const refreshIntervalMs = 30000;
+        let activeFilter = 'all';
+
+        function createUpdateCard(update) {
+            const card = document.createElement('div');
+            card.className = `update-card ${update.severity || 'secondary'}`;
+            card.dataset.updateType = update.type || 'other';
+
+            const header = document.createElement('div');
+            header.className = 'update-header';
+
+            const title = document.createElement('h5');
+            title.className = 'update-title';
+            title.textContent = update.title || 'Update';
+
+            const time = document.createElement('span');
+            time.className = 'update-time';
+            time.textContent = update.timestamp || '';
+
+            header.appendChild(title);
+            header.appendChild(time);
+
+            const message = document.createElement('p');
+            message.className = 'update-message';
+            message.textContent = update.message || '';
+
+            card.appendChild(header);
+            card.appendChild(message);
+            return card;
+        }
+
+        function renderUpdates(data) {
+            if (!updatesContainer || !data) return;
+
+            updatesContainer.innerHTML = '';
+            const updates = Array.isArray(data.updates) ? data.updates : [];
+
+            if (updates.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'alert alert-secondary mt-3 mb-0';
+                empty.textContent = 'No live updates available right now.';
+                updatesContainer.appendChild(empty);
+            } else {
+                updates.forEach((update) => {
+                    updatesContainer.appendChild(createUpdateCard(update));
+                });
+            }
+
+            applyFilter();
+        }
+
+        function setActiveFilterButton() {
+            if (!filtersContainer) return;
+            const buttons = filtersContainer.querySelectorAll('.update-filter-btn');
+            buttons.forEach((btn) => {
+                const btnFilter = btn.dataset.filter || 'all';
+                btn.classList.toggle('active', btnFilter === activeFilter);
+            });
+        }
+
+        function applyFilter() {
+            if (!updatesContainer) return;
+            const cards = updatesContainer.querySelectorAll('.update-card');
+            cards.forEach((card) => {
+                const type = card.dataset.updateType || 'other';
+                const shouldShow = activeFilter === 'all' || type === activeFilter;
+                card.classList.toggle('update-hidden', !shouldShow);
+            });
+
+            setActiveFilterButton();
+        }
+
+        async function refreshLiveUpdates() {
+            if (!endpoint) return;
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    cache: 'no-store'
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+                renderUpdates(data);
+            } catch (error) {
+                // Keep existing content visible if network refresh fails.
+            }
+        }
+
+        if (filtersContainer) {
+            filtersContainer.addEventListener('click', function (event) {
+                const button = event.target.closest('.update-filter-btn');
+                if (!button) return;
+                activeFilter = button.dataset.filter || 'all';
+                applyFilter();
+            });
+        }
+
+        applyFilter();
+
+        setInterval(refreshLiveUpdates, refreshIntervalMs);
+    })();
+</script>
 
 {% endblock %}

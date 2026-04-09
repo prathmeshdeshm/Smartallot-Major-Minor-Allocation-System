@@ -5,6 +5,7 @@ from . import merit_list_views
 urlpatterns = [
     # Dashboards
     path('', views.home, name='home'),
+    path('api/home-live-updates/', views.home_live_updates_api, name='home_live_updates_api'),
     path('dashboard/admin/', views.admin_dashboard, name='admin_dashboard'),
     path('dashboard/student/', views.student_dashboard, name='student_dashboard'),
     path('validate/', views.validate_student_form, name='validate_student_form'),  # NEW: Student validation
@@ -80,6 +81,11 @@ urlpatterns = [
     # NEW: EXCEL IMPORT & STUDENT VALIDATION
     path('dashboard/admin/import-excel/', views.import_students_excel, name='import_students_excel'),
     path('dashboard/admin/import-results/', views.import_student_results_excel, name='import_student_results_excel'),
+    path('dashboard/admin/import-tr-pdf/', views.import_tr_pdf, name='import_tr_pdf'),
+    path('dashboard/admin/imported-records/', views.imported_records_report, name='imported_records_report'),
+    path('dashboard/admin/delete-module/', views.admin_delete_module, name='admin_delete_module'),
+    path('dashboard/admin/delete-module/confirm-step-1/', views.admin_delete_confirm_step1, name='admin_delete_confirm_step1'),
+    path('dashboard/admin/delete-module/confirm-step-2/', views.admin_delete_confirm_step2, name='admin_delete_confirm_step2'),
     path('dashboard/admin/absconding-students/', views.manage_absconding_students, name='manage_absconding_students'),
     path('dashboard/admin/absconding-students/<int:absconding_id>/', views.absconding_student_detail, name='absconding_student_detail'),
     path('dashboard/admin/absconding-students/<int:absconding_id>/register/', views.register_absconding_student, name='register_absconding_student'),

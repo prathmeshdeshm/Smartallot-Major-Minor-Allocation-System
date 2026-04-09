@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Delete Module{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-danger shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="fas fa-trash-alt me-2"></i>Permanent Delete Module (Admin Only)</h4>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0 text-danger fw-semibold">
+                        This module permanently deletes records from the database. Use only when absolutely required.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if active_workflow and active_snapshot %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div
+                class="alert alert-warning border border-warning-subtle shadow-sm d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                <div>
+                    <strong>Active Delete Workflow:</strong> {{ active_snapshot.label }}
+                    {% if active_workflow.step1_confirmed %}
+                    <span class="badge bg-success ms-2">Step 1 Completed</span>
+                    {% else %}
+                    <span class="badge bg-secondary ms-2">Step 1 Pending</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    {% if active_workflow.step1_confirmed %}
+                    <a href="{% url 'admin_delete_confirm_step2' %}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-forward me-1"></i>Continue Step 2
+                    </a>
+                    {% else %}
+                    <a href="{% url 'admin_delete_confirm_step1' %}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-forward me-1"></i>Continue Step 1
+                    </a>
+                    {% endif %}
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reset">
+                        <button type="submit" class="btn btn-outline-dark btn-sm">
+                            <i class="fas fa-times me-1"></i>Cancel Workflow
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-primary"><i class="fas fa-book me-2"></i>{{ courses_branches_snapshot.label }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Delete all course and branch records as a separate component.</p>
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for item in courses_branches_snapshot.stats %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span>{{ item.label }}</span>
+                            <span class="badge bg-primary rounded-pill">{{ item.count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="alert alert-warning small mb-3">{{ courses_branches_snapshot.warning }}</div>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="start">
+                        <input type="hidden" name="component" value="courses_branches">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-trash me-1"></i>Start Delete: Courses and Branches
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0 text-success"><i class="fas fa-users me-2"></i>{{ students_snapshot.label }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Delete all student-related records as a separate component.</p>
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for item in students_snapshot.stats %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span>{{ item.label }}</span>
+                            <span class="badge bg-success rounded-pill">{{ item.count }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="alert alert-warning small mb-3">{{ students_snapshot.warning }}</div>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="start">
+                        <input type="hidden" name="component" value="students">
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-trash me-1"></i>Start Delete: Students
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
