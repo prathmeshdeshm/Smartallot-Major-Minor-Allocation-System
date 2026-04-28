@@ -236,6 +236,71 @@ class PreferenceWindowSelectionTests(TestCase):
 		self.assertTrue(response.context['minor_window_is_open'])
 		self.assertEqual(response.context['minor_window_status'], 'open')
 
+	def test_admin_can_close_minor_window(self):
+		active_window = PreferenceWindow.objects.create(
+			preference_type='minor',
+			name='Minor Window To Close',
+			start_at=self.now - timezone.timedelta(hours=1),
+			end_at=self.now + timezone.timedelta(hours=1),
+			is_active=True,
+		)
+
+		self.client.force_login(self.admin)
+		response = self.client.post(reverse('admin_dashboard'), {
+			'close_window': '1',
+			'preference_type': 'minor',
+		})
+
+		self.assertEqual(response.status_code, 302)
+		active_window.refresh_from_db()
+		self.assertFalse(active_window.is_active)
+
+	def test_admin_can_close_oe_window(self):
+		active_window = PreferenceWindow.objects.create(
+			preference_type='oe',
+			name='OE Window To Close',
+			start_at=self.now - timezone.timedelta(hours=1),
+			end_at=self.now + timezone.timedelta(hours=1),
+			is_active=True,
+		)
+
+		self.client.force_login(self.admin)
+		response = self.client.post(reverse('admin_dashboard'), {
+			'close_window': '1',
+			'preference_type': 'oe',
+		})
+
+		self.assertEqual(response.status_code, 302)
+		active_window.refresh_from_db()
+		self.assertFalse(active_window.is_active)
+
+
+class StudentValidationReentryTests(TestCase):
+	def setUp(self):
+		self.user = User.objects.create_user(username='reentry-user')
+		self.student = Student.objects.create(
+			user=self.user,
+			name='Reentry Student',
+			roll_no='REN001',
+			department='CSE',
+			percentage=75,
+			marks=450,
+			email='reentry@student.com',
+			is_validated=True,
+		)
+
+	def test_validate_view_allows_reentry_after_session_verified(self):
+		session = self.client.session
+		session['validated_student_id'] = self.student.id
+		session['student_verification_complete'] = True
+		session['validation_step_passed'] = False
+		session.save()
+
+		response = self.client.get(reverse('validate_student_form'))
+
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context['step'], 1)
+
 
 class StudentDepartmentImportSyncTests(TestCase):
 	def setUp(self):

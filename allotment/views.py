@@ -340,6 +340,27 @@ def admin_dashboard(request):
         return redirect('admin_login')
     
     if request.method == 'POST':
+        # Close preference window immediately (admin UI)
+        if 'close_window' in request.POST:
+            preference_type = request.POST.get('preference_type', 'minor').strip() or 'minor'
+
+            if preference_type not in {'minor', 'oe'}:
+                messages.error(request, "Invalid preference window type.")
+                return redirect('admin_dashboard')
+
+            closed_count = PreferenceWindow.objects.filter(
+                preference_type=preference_type,
+                is_active=True
+            ).update(is_active=False)
+
+            label = 'Minor' if preference_type == 'minor' else 'OE'
+            if closed_count:
+                messages.success(request, f"{label} preference window closed successfully.")
+            else:
+                messages.info(request, f"{label} preference window is already closed.")
+
+            return redirect('admin_dashboard')
+
         # Save preference window (admin UI)
         if 'save_window' in request.POST:
             preference_type = request.POST.get('preference_type', 'minor').strip() or 'minor'
@@ -1139,9 +1160,9 @@ def validate_student_form(request):
     # Refresh from DB to ensure latest data
     student.refresh_from_db()
     
-    # If this login session is already verified, skip validation form.
-    if request.session.get('student_verification_complete'):
-        return redirect('student_dashboard')
+    # Allow students to intentionally re-open and refill validation info.
+    # Keep dashboard-gating logic unchanged: dashboard still requires
+    # student_verification_complete=True for access.
     
     # Check which step we're on
     validation_step_passed = request.session.get('validation_step_passed', False)
