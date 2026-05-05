@@ -220,15 +220,13 @@
                 <i class="fas fa-key"></i>
                 <a href="{% url 'forgot_password' %}" class="footer-link">Reset password with OTP</a>
             </p>
-            {% if can_create_admin_account %}
             <p class="mb-2">
                 <i class="fas fa-user-plus"></i>
-                <a href="{% url 'admin_account_setup' %}" class="footer-link">Create the first admin account</a>
+                <a href="{% url 'admin_account_setup' %}" class="footer-link">Admin account setup</a>
             </p>
-            {% endif %}
             <div class="footer-note">
                 <i class="fas fa-info-circle"></i>
-                Admin accounts are created by system administrators only
+                Use this page to bootstrap the first admin account.
             </div>
         </div>
     </div>

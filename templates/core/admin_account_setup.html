@@ -108,6 +108,15 @@
         </div>
 
         <div class="setup-body">
+            {% if setup_locked %}
+            <div class="alert alert-warning" role="alert">
+                An admin account already exists. This page is only for first-time bootstrap.
+            </div>
+            <div class="d-grid gap-2">
+                <a href="{% url 'admin_login' %}" class="btn-setup text-decoration-none text-center">Back to Admin
+                    Login</a>
+            </div>
+            {% else %}
             {% if form.non_field_errors %}
             <div class="alert alert-danger">{{ form.non_field_errors }}</div>
             {% endif %}
@@ -160,9 +169,10 @@
                     <button type="submit" class="btn-setup">Create Admin Account</button>
                 </div>
             </form>
+            {% endif %}
 
             <div class="help-text">
-                This page is available only until the first admin account is created.
+                This page is available for initial administrator bootstrap.
             </div>
         </div>
     </div>

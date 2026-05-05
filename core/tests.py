@@ -11,7 +11,20 @@ class AdminAccountSetupTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(admin_account_exists())
-        self.assertContains(response, 'Create the first admin account')
+        self.assertContains(response, 'Admin account setup')
+
+    def test_admin_login_shows_setup_link_when_admin_exists(self):
+        User.objects.create_superuser(
+            username='existing-admin',
+            email='existing-admin@example.com',
+            password='StrongPass123!'
+        )
+
+        response = self.client.get(reverse('admin_login'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Admin account setup')
+        self.assertContains(response, 'Use this page to bootstrap the first admin account.')
 
     def test_admin_account_setup_creates_superuser(self):
         response = self.client.post(reverse('admin_account_setup'), {

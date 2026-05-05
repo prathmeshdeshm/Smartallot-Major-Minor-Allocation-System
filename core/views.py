@@ -249,19 +249,20 @@ def admin_login(request):
 
     return render(request, 'core/admin_login.html', {
         'form': form,
-        'can_create_admin_account': not admin_account_exists(),
     })
 
 
 def admin_account_setup(request):
-    if admin_account_exists():
-        messages.info(request, "An admin account already exists.")
-        return redirect('admin_login')
-
     if request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
         return redirect('admin_dashboard')
 
+    setup_locked = admin_account_exists()
+
     if request.method == 'POST':
+        if setup_locked:
+            messages.info(request, "An admin account already exists.")
+            return redirect('admin_login')
+
         form = AdminAccountCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
@@ -273,6 +274,7 @@ def admin_account_setup(request):
 
     return render(request, 'core/admin_account_setup.html', {
         'form': form,
+        'setup_locked': setup_locked,
     })
 
 
