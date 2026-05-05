@@ -182,14 +182,14 @@
         <!-- Body -->
         <div class="auth-body">
             {% if form.non_field_errors %}
-                <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <div>
-                        {% for error in form.non_field_errors %}
-                            {{ error }}<br>
-                        {% endfor %}
-                    </div>
+            <div class="alert alert-danger" role="alert">
+                <i class="fas fa-exclamation-circle"></i>
+                <div>
+                    {% for error in form.non_field_errors %}
+                    {{ error }}<br>
+                    {% endfor %}
                 </div>
+            </div>
             {% endif %}
 
             <form method="post" novalidate>
@@ -197,27 +197,15 @@
 
                 <div class="form-group">
                     <label for="id_username">Username</label>
-                    <input
-                        type="text"
-                        id="id_username"
-                        name="username"
-                        class="form-control"
-                        placeholder="Enter admin username"
-                        value="{{ form.username.value|default_if_none:'' }}"
-                        required
-                    />
+                    <input type="text" id="id_username" name="username" class="form-control"
+                        placeholder="Enter admin username" value="{{ form.username.value|default_if_none:'' }}"
+                        required />
                 </div>
 
                 <div class="form-group">
                     <label for="id_password">Password</label>
-                    <input
-                        type="password"
-                        id="id_password"
-                        name="password"
-                        class="form-control"
-                        placeholder="Enter admin password"
-                        required
-                    />
+                    <input type="password" id="id_password" name="password" class="form-control"
+                        placeholder="Enter admin password" required />
                 </div>
 
                 <button type="submit" class="btn-login">
@@ -232,6 +220,12 @@
                 <i class="fas fa-key"></i>
                 <a href="{% url 'forgot_password' %}" class="footer-link">Reset password with OTP</a>
             </p>
+            {% if can_create_admin_account %}
+            <p class="mb-2">
+                <i class="fas fa-user-plus"></i>
+                <a href="{% url 'admin_account_setup' %}" class="footer-link">Create the first admin account</a>
+            </p>
+            {% endif %}
             <div class="footer-note">
                 <i class="fas fa-info-circle"></i>
                 Admin accounts are created by system administrators only

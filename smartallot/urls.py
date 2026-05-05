@@ -13,6 +13,7 @@ urlpatterns = [
     # Registration disabled - students are imported by admin
     # path('accounts/student/register/', core_views.student_register, name='student_register'),
     path('accounts/admin/login/', core_views.admin_login, name='admin_login'),
+    path('accounts/admin/setup/', core_views.admin_account_setup, name='admin_account_setup'),
     path('accounts/logout/', core_views.logout_view, name='logout'),
     path('accounts/password/forgot/', core_views.forgot_password, name='forgot_password'),
     path('accounts/password/reset/', core_views.reset_password_with_otp, name='reset_password_with_otp'),

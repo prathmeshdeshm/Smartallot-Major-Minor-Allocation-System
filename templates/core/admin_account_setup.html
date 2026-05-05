@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}Admin Account Setup - SmartAllot{% endblock %}
+
+{% block content %}
+<style>
+    .setup-container {
+        min-height: calc(100vh - 60px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+        padding: 2rem;
+    }
+
+    .setup-card {
+        background: white;
+        width: 100%;
+        max-width: 520px;
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .setup-header {
+        background: linear-gradient(135deg, #0f766e 0%, #2563eb 100%);
+        padding: 2rem;
+        color: white;
+        text-align: center;
+    }
+
+    .setup-header h2 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.7rem;
+        font-weight: 700;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .setup-body {
+        padding: 2rem;
+    }
+
+    .form-grid {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: #1e293b;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .btn-setup {
+        width: 100%;
+        border: none;
+        padding: 0.9rem;
+        border-radius: 8px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #0f766e 0%, #2563eb 100%);
+        color: white;
+        cursor: pointer;
+    }
+
+    .help-text {
+        margin-top: 1rem;
+        padding: 0.9rem 1rem;
+        border-radius: 8px;
+        background: #ecfeff;
+        color: #155e75;
+        font-size: 0.95rem;
+    }
+
+    @media (max-width: 640px) {
+        .setup-container {
+            padding: 1rem;
+        }
+
+        .setup-body {
+            padding: 1.5rem;
+        }
+
+        .setup-header {
+            padding: 1.5rem;
+        }
+    }
+</style>
+
+<div class="setup-container">
+    <div class="setup-card">
+        <div class="setup-header">
+            <h2><i class="fas fa-user-shield me-2"></i>Create Admin Account</h2>
+            <p class="mb-0">Bootstrap the first system administrator</p>
+        </div>
+
+        <div class="setup-body">
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="id_username">Username</label>
+                        <input type="text" name="username" id="id_username" class="form-control" required
+                            value="{{ form.username.value|default_if_none:'' }}">
+                        {{ form.username.errors }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_email">Email</label>
+                        <input type="email" name="email" id="id_email" class="form-control" required
+                            value="{{ form.email.value|default_if_none:'' }}">
+                        {{ form.email.errors }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_first_name">First name</label>
+                        <input type="text" name="first_name" id="id_first_name" class="form-control" required
+                            value="{{ form.first_name.value|default_if_none:'' }}">
+                        {{ form.first_name.errors }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_last_name">Last name</label>
+                        <input type="text" name="last_name" id="id_last_name" class="form-control"
+                            value="{{ form.last_name.value|default_if_none:'' }}">
+                        {{ form.last_name.errors }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_password1">Password</label>
+                        <input type="password" name="password1" id="id_password1" class="form-control" required>
+                        {{ form.password1.errors }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_password2">Confirm password</label>
+                        <input type="password" name="password2" id="id_password2" class="form-control" required>
+                        {{ form.password2.errors }}
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn-setup">Create Admin Account</button>
+                </div>
+            </form>
+
+            <div class="help-text">
+                This page is available only until the first admin account is created.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

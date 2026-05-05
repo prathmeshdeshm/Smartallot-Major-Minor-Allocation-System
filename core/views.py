@@ -21,6 +21,7 @@ from .forms import (
 )
 from allotment.models import Student, ImportedStudent
 from allotment.utils import calculate_percentage_from_marks
+from .admin_account import AdminAccountCreationForm, admin_account_exists
 
 
 logger = logging.getLogger(__name__)
@@ -246,7 +247,33 @@ def admin_login(request):
     else:
         form = AuthenticationForm()
 
-    return render(request, 'core/admin_login.html', {'form': form})
+    return render(request, 'core/admin_login.html', {
+        'form': form,
+        'can_create_admin_account': not admin_account_exists(),
+    })
+
+
+def admin_account_setup(request):
+    if admin_account_exists():
+        messages.info(request, "An admin account already exists.")
+        return redirect('admin_login')
+
+    if request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
+        return redirect('admin_dashboard')
+
+    if request.method == 'POST':
+        form = AdminAccountCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, "Admin account created successfully. You are now logged in.")
+            return redirect('admin_dashboard')
+    else:
+        form = AdminAccountCreationForm()
+
+    return render(request, 'core/admin_account_setup.html', {
+        'form': form,
+    })
 
 
 # -------------------------
