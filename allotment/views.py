@@ -8,6 +8,7 @@ from datetime import datetime
 from django.utils import timezone   # you already had this, ensure it remains
 
 from django.db import transaction
+from django.db.utils import OperationalError, ProgrammingError
 from django.db.models import Max, Min, Q, Count
 from django.db.models import Min
 from django.utils import timezone
@@ -107,7 +108,6 @@ def _get_delete_component_snapshot(component):
 
     return None
 
-
 def _execute_component_delete(component):
     if component == 'courses_branches':
         minor_count = MinorBranch.objects.count()
@@ -205,108 +205,112 @@ def home(request):
 def _build_home_live_updates():
     now = timezone.now()
 
-    def build_window_update(preference_type, label):
-        window = _get_preference_window_for_display(preference_type)
-        if not window:
-            return {
-                'type': 'window',
-                'severity': 'info',
-                'title': f'{label} Window Not Configured',
-                'message': f'Admin has not configured a {label.lower()} preference window yet.',
-                'timestamp': now,
-            }
+    try:
+        def build_window_update(preference_type, label):
+            window = _get_preference_window_for_display(preference_type)
+            if not window:
+                return {
+                    'type': 'window',
+                    'severity': 'info',
+                    'title': f'{label} Window Not Configured',
+                    'message': f'Admin has not configured a {label.lower()} preference window yet.',
+                    'timestamp': now,
+                }
 
-        if window.is_active and window.start_at <= now <= window.end_at:
+            if window.is_active and window.start_at <= now <= window.end_at:
+                return {
+                    'type': 'window',
+                    'severity': 'success',
+                    'title': f'{label} Window Open',
+                    'message': (
+                        f'Open now. Started: {timezone.localtime(window.start_at).strftime("%d %b %Y %H:%M")}, '
+                        f'closes: {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}. '
+                        'Submit preferences before deadline.'
+                    ),
+                    'timestamp': window.end_at,
+                }
+
+            if now < window.start_at:
+                return {
+                    'type': 'window',
+                    'severity': 'info',
+                    'title': f'{label} Window Scheduled',
+                    'message': (
+                        f'Opens on {timezone.localtime(window.start_at).strftime("%d %b %Y %H:%M")}. '
+                        f'Ends on {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}. '
+                        'You can submit once it opens.'
+                    ),
+                    'timestamp': window.start_at,
+                }
+
             return {
                 'type': 'window',
-                'severity': 'success',
-                'title': f'{label} Window Open',
-                'message': (
-                    f'Open now. Started: {timezone.localtime(window.start_at).strftime("%d %b %Y %H:%M")}, '
-                    f'closes: {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}. '
-                    'Submit preferences before deadline.'
-                ),
+                'severity': 'secondary',
+                'title': f'{label} Window Closed',
+                'message': f'Closed on {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}.',
                 'timestamp': window.end_at,
             }
 
-        if now < window.start_at:
-            return {
-                'type': 'window',
-                'severity': 'info',
-                'title': f'{label} Window Scheduled',
+        live_updates = [
+            build_window_update('minor', 'Minor Preferences'),
+            build_window_update('oe', 'Open Elective'),
+        ]
+
+        latest_minor_submission = PreferenceSubmission.objects.exclude(
+            minor_submitted_at__isnull=True
+        ).select_related('student').order_by('-minor_submitted_at').first()
+        if latest_minor_submission:
+            live_updates.append({
+                'type': 'submission',
+                'severity': 'primary',
+                'title': 'Latest Minor Submission',
                 'message': (
-                    f'Opens on {timezone.localtime(window.start_at).strftime("%d %b %Y %H:%M")}. '
-                    f'Ends on {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}. '
-                    'You can submit once it opens.'
+                    f'{latest_minor_submission.student.name} submitted minor preferences at '
+                    f'{timezone.localtime(latest_minor_submission.minor_submitted_at).strftime("%d %b %Y %H:%M:%S")}. '
+                    'Submission timestamps are tracked server-side.'
                 ),
-                'timestamp': window.start_at,
-            }
+                'timestamp': latest_minor_submission.minor_submitted_at,
+            })
 
-        return {
-            'type': 'window',
-            'severity': 'secondary',
-            'title': f'{label} Window Closed',
-            'message': f'Closed on {timezone.localtime(window.end_at).strftime("%d %b %Y %H:%M")}.',
-            'timestamp': window.end_at,
-        }
+        latest_oe_submission = PreferenceSubmission.objects.exclude(
+            oe_submitted_at__isnull=True
+        ).select_related('student').order_by('-oe_submitted_at').first()
+        if latest_oe_submission:
+            live_updates.append({
+                'type': 'submission',
+                'severity': 'primary',
+                'title': 'Latest OE Submission',
+                'message': (
+                    f'{latest_oe_submission.student.name} submitted OE preferences at '
+                    f'{timezone.localtime(latest_oe_submission.oe_submitted_at).strftime("%d %b %Y %H:%M:%S")}. '
+                    'Submission timestamps are tracked server-side.'
+                ),
+                'timestamp': latest_oe_submission.oe_submitted_at,
+            })
 
-    live_updates = [
-        build_window_update('minor', 'Minor Preferences'),
-        build_window_update('oe', 'Open Elective'),
-    ]
+        latest_result_run = AuditLog.objects.filter(action='allocation_run').order_by('-timestamp').first()
+        if latest_result_run:
+            live_updates.append({
+                'type': 'result',
+                'severity': 'warning',
+                'title': 'Allocation Results Update',
+                'message': f'Latest allocation run was recorded at {timezone.localtime(latest_result_run.timestamp).strftime("%d %b %Y %H:%M:%S")}.',
+                'timestamp': latest_result_run.timestamp,
+            })
+        else:
+            live_updates.append({
+                'type': 'result',
+                'severity': 'secondary',
+                'title': 'Allocation Results Pending',
+                'message': 'No allocation run recorded yet. Results notification will appear here once allocation is executed.',
+                'timestamp': now,
+            })
 
-    latest_minor_submission = PreferenceSubmission.objects.exclude(
-        minor_submitted_at__isnull=True
-    ).select_related('student').order_by('-minor_submitted_at').first()
-    if latest_minor_submission:
-        live_updates.append({
-            'type': 'submission',
-            'severity': 'primary',
-            'title': 'Latest Minor Submission',
-            'message': (
-                f'{latest_minor_submission.student.name} submitted minor preferences at '
-                f'{timezone.localtime(latest_minor_submission.minor_submitted_at).strftime("%d %b %Y %H:%M:%S")}. '
-                'Submission timestamps are tracked server-side.'
-            ),
-            'timestamp': latest_minor_submission.minor_submitted_at,
-        })
-
-    latest_oe_submission = PreferenceSubmission.objects.exclude(
-        oe_submitted_at__isnull=True
-    ).select_related('student').order_by('-oe_submitted_at').first()
-    if latest_oe_submission:
-        live_updates.append({
-            'type': 'submission',
-            'severity': 'primary',
-            'title': 'Latest OE Submission',
-            'message': (
-                f'{latest_oe_submission.student.name} submitted OE preferences at '
-                f'{timezone.localtime(latest_oe_submission.oe_submitted_at).strftime("%d %b %Y %H:%M:%S")}. '
-                'Submission timestamps are tracked server-side.'
-            ),
-            'timestamp': latest_oe_submission.oe_submitted_at,
-        })
-
-    latest_result_run = AuditLog.objects.filter(action='allocation_run').order_by('-timestamp').first()
-    if latest_result_run:
-        live_updates.append({
-            'type': 'result',
-            'severity': 'warning',
-            'title': 'Allocation Results Update',
-            'message': f'Latest allocation run was recorded at {timezone.localtime(latest_result_run.timestamp).strftime("%d %b %Y %H:%M:%S")}.',
-            'timestamp': latest_result_run.timestamp,
-        })
-    else:
-        live_updates.append({
-            'type': 'result',
-            'severity': 'secondary',
-            'title': 'Allocation Results Pending',
-            'message': 'No allocation run recorded yet. Results notification will appear here once allocation is executed.',
-            'timestamp': now,
-        })
-
-    live_updates.sort(key=lambda x: x['timestamp'], reverse=True)
-    return now, live_updates[:6]
+        live_updates.sort(key=lambda x: x['timestamp'], reverse=True)
+        return now, live_updates[:6]
+    except (OperationalError, ProgrammingError):
+        logger.exception('Preference window tables are not ready yet; returning empty home updates.')
+        return now, []
 
 
 def home_live_updates_api(request):
