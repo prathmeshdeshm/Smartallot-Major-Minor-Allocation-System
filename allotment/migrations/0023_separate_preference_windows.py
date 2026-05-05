@@ -66,7 +66,6 @@ class Migration(migrations.Migration):
             name='preferencewindow',
             options={'ordering': ['-created_at']},
         ),
-        migrations.RunPython(normalize_active_windows, reverse_normalize_active_windows),
         migrations.AddIndex(
             model_name='preferencewindow',
             index=models.Index(fields=['preference_type', 'is_active'], name='allotment_p_prefere_43e357_idx'),
@@ -75,6 +74,7 @@ class Migration(migrations.Migration):
             model_name='preferencewindow',
             index=models.Index(fields=['preference_type', 'start_at', 'end_at'], name='allotment_p_prefere_764d3c_idx'),
         ),
+        migrations.RunPython(normalize_active_windows, reverse_normalize_active_windows),
         migrations.AddConstraint(
             model_name='preferencewindow',
             constraint=models.UniqueConstraint(
