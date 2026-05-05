@@ -513,13 +513,6 @@ class PreferenceWindow(models.Model):
             models.Index(fields=['preference_type', 'is_active']),
             models.Index(fields=['preference_type', 'start_at', 'end_at']),
         ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=['preference_type'],
-                condition=models.Q(is_active=True),
-                name='unique_active_preference_window_per_type'
-            )
-        ]
 
     def __str__(self):
         return f"{self.get_preference_type_display()} - {self.name} ({self.start_at.strftime('%Y-%m-%d %H:%M')} → {self.end_at.strftime('%Y-%m-%d %H:%M')})"

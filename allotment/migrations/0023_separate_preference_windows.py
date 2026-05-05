@@ -2,25 +2,33 @@ from django.db import migrations, models
 from django.utils import timezone
 
 
-def normalize_active_windows(apps, schema_editor):
+def normalize_and_deactivate_duplicates(apps, schema_editor):
+    """
+    Deactivate all but the most recent active window for each preference type.
+    This ensures single active window per type before optional constraint.
+    """
     PreferenceWindow = apps.get_model('allotment', 'PreferenceWindow')
 
+    # First, ensure all windows have preference_type set
+    PreferenceWindow.objects.filter(preference_type__isnull=True).update(
+        preference_type='minor'
+    )
+
     for preference_type in ['minor', 'oe']:
+        # Get all active windows for this type, ordered by most recent first
         active_windows = PreferenceWindow.objects.filter(
             preference_type=preference_type,
             is_active=True,
-        ).order_by('-start_at', '-id')
-
-        keep_first = True
-        for window in active_windows:
-            if keep_first:
-                keep_first = False
-                continue
+        ).order_by('-created_at', '-id')
+        
+        # Keep only the first (most recent), deactivate all others
+        for window in active_windows[1:]:
             window.is_active = False
             window.save(update_fields=['is_active'])
 
 
-def reverse_normalize_active_windows(apps, schema_editor):
+def reverse_normalize_and_deactivate_duplicates(apps, schema_editor):
+    """Reverse is a no-op since we can't reliably restore deactivated windows."""
     pass
 
 
@@ -74,13 +82,5 @@ class Migration(migrations.Migration):
             model_name='preferencewindow',
             index=models.Index(fields=['preference_type', 'start_at', 'end_at'], name='allotment_p_prefere_764d3c_idx'),
         ),
-        migrations.RunPython(normalize_active_windows, reverse_normalize_active_windows),
-        migrations.AddConstraint(
-            model_name='preferencewindow',
-            constraint=models.UniqueConstraint(
-                condition=models.Q(is_active=True),
-                fields=('preference_type',),
-                name='unique_active_preference_window_per_type',
-            ),
-        ),
+        migrations.RunPython(normalize_and_deactivate_duplicates, reverse_normalize_and_deactivate_duplicates),
     ]
