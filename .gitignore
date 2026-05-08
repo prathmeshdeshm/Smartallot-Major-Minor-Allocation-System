@@ -1,0 +1,23 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+
+# Django local database/log artifacts
+*.sqlite3
+*.log
+
+# Build and coverage artifacts
+build/
+dist/
+.coverage
+.pytest_cache/
+.mypy_cache/
