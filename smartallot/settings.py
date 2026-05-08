@@ -6,7 +6,7 @@ import dj_database_url
 # Load Environment Variables from .env file
 # ============================================
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 
 def _getenv_str(name, default=''):
